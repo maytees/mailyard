@@ -1,0 +1,6 @@
+# Ignore Wails v3 compiled binaries and output artifacts
+build/** linguist-generated
+
+# Ignore frontend framework production bundles (Vite)
+frontend/dist/** linguist-vendored
+frontend/build/** linguist-vendored

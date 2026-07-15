@@ -36,7 +36,7 @@ func main() {
 	// 'Mac' options tailor the application when running an macOS.
 	app := application.New(application.Options{
 		Name:        "mailyard",
-		Description: "A demo of using raw HTML & CSS",
+		Description: "A unified AI inbox.",
 		Services: []application.Service{
 			application.NewService(&GreetService{}),
 		},
@@ -54,10 +54,10 @@ func main() {
 	// 'BackgroundColour' is the background colour of the window.
 	// 'URL' is the URL that will be loaded into the webview.
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title: "Window 1",
+		Title: "Mailyard",
 		// Window sized to the golden ratio (1000 / 618 ≈ 1.618).
-		Width:  1000,
-		Height: 618,
+		Width:  1280,
+		Height: 791,
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
 			Backdrop:                application.MacBackdropTranslucent,

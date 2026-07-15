@@ -6,32 +6,32 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   IgnorableNamespaces="uap3">
-  
-  <Identity 
+
+  <Identity
     Name="net.matees.mailyard"
     Publisher="CN=My Company"
-    Version="0.1.0.0" 
+    Version="0.1.0.0"
     ProcessorArchitecture="arm64" />
-  
+
   <Properties>
-    <DisplayName>My Product</DisplayName>
+    <DisplayName>Mailyard</DisplayName>
     <PublisherDisplayName>My Company</PublisherDisplayName>
     <Description>A mailyard application</Description>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
-  
+
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
   </Dependencies>
-  
+
   <Resources>
     <Resource Language="en-us" />
   </Resources>
-  
+
   <Applications>
     <Application Id="net.matees.mailyard" Executable="mailyard" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="My Product"
+        DisplayName="Mailyard"
         Description="A mailyard application"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
@@ -39,17 +39,17 @@
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
-      
+
       <Extensions>
         <desktop:Extension Category="windows.fullTrustProcess" Executable="mailyard" />
-        
-        
+
+
       </Extensions>
     </Application>
   </Applications>
-  
+
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
-    
+
   </Capabilities>
 </Package>

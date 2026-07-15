@@ -10,27 +10,27 @@
     <Installer
         Path="mailyard"
         Arguments=""
-        InstallLocation="C:\Program Files\My Company\My Product">
+        InstallLocation="C:\Program Files\My Company\Mailyard">
     </Installer>
     <PackageInformation
-        PackageName="My Product"
-        PackageDisplayName="My Product"
+        PackageName="Mailyard"
+        PackageDisplayName="Mailyard"
         PublisherName="CN=My Company"
         PublisherDisplayName="My Company"
         Version="0.1.0.0"
         PackageDescription="A mailyard application">
         <Capabilities>
             <Capability Name="runFullTrust" />
-            
+
         </Capabilities>
         <Applications>
             <Application
                 Id="net.matees.mailyard"
                 Description="A mailyard application"
-                DisplayName="My Product"
+                DisplayName="Mailyard"
                 ExecutableName="mailyard"
                 EntryPoint="Windows.FullTrustApplication">
-                
+
             </Application>
         </Applications>
         <Resources>
@@ -41,7 +41,7 @@
         </Dependencies>
         <Properties>
             <Framework>false</Framework>
-            <DisplayName>My Product</DisplayName>
+            <DisplayName>Mailyard</DisplayName>
             <PublisherDisplayName>My Company</PublisherDisplayName>
             <Description>A mailyard application</Description>
             <Logo>Assets\AppIcon.png</Logo>

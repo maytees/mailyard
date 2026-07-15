@@ -7,9 +7,9 @@
     <key>CFBundleIdentifier</key>
     <string>net.matees.mailyard</string>
     <key>CFBundleName</key>
-    <string>My Product</string>
+    <string>Mailyard</string>
     <key>CFBundleDisplayName</key>
-    <string>My Product</string>
+    <string>Mailyard</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -46,14 +46,14 @@
         <key>NSAllowsLocalNetworking</key>
         <true/>
     </dict>
-    
-    
+
+
     <key>NSHumanReadableCopyright</key>
     <string>© 2026, My Company</string>
-    
-    
+
+
     <key>CFBundleGetInfoString</key>
     <string>This is a comment</string>
-    
+
 </dict>
 </plist>

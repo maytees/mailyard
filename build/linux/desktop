@@ -1,6 +1,6 @@
 [Desktop Entry]
 Version=1.0
-Name=My Product
+Name=Mailyard
 Comment=A mailyard application
 # The Exec line includes %u to pass the URL to the application
 Exec=/usr/local/bin/mailyard %u
@@ -9,5 +9,3 @@ Type=Application
 Icon=mailyard
 Categories=Utility;
 StartupWMClass=mailyard
-
- 
