@@ -1,6 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import * as React from "react"
 
+import { matchesShortcut } from "@/lib/keyboard"
+
 type Theme = "dark" | "light" | "system"
 type ResolvedTheme = "dark" | "light"
 
@@ -145,17 +147,15 @@ export function ThemeProvider({
         return
       }
 
-      if (event.metaKey || event.ctrlKey || event.altKey) {
-        return
-      }
-
       if (isEditableTarget(event.target)) {
         return
       }
 
-      if (event.key.toLowerCase() !== "d") {
+      if (!matchesShortcut(event, "mod+d")) {
         return
       }
+
+      event.preventDefault()
 
       setThemeState((currentTheme) => {
         const nextTheme =

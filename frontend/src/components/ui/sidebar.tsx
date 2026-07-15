@@ -5,18 +5,11 @@ import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
 
-import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
+import { colorVariants } from "@/lib/mailbox-colors"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import {
-	Sheet,
-	SheetContent,
-	SheetDescription,
-	SheetHeader,
-	SheetTitle,
-} from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
 	Tooltip,
@@ -29,7 +22,6 @@ import { SidebarLeftIcon } from "@hugeicons/core-free-icons"
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "15rem"
-const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "6.1rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
@@ -167,8 +159,6 @@ function Sidebar({
 	variant?: "sidebar" | "floating" | "inset"
 	collapsible?: "offcanvas" | "icon" | "none"
 }) {
-	const { state, openMobile, setOpenMobile } = useSidebar()
-
 	if (collapsible === "none") {
 		return (
 			<div
@@ -494,10 +484,12 @@ const sidebarMenuButtonVariants = cva(
 			size: {
 				default: "h-9 text-sm group-data-[collapsible=icon]:size-9!",
 				sm: "h-8 text-xs group-data-[collapsible=icon]:size-8!",
+				md: "h-11 text-sm group-data-[collapsible=icon]:size-11!",
 				lg: "h-14 px-3 text-sm group-data-[collapsible=icon]:size-14!",
 				xl: "h-16 px-4 text-base group-data-[collapsible=icon]:size-16! [&_svg]:size-5",
 				"2xl": "h-20 px-4 text-lg group-data-[collapsible=icon]:size-20! [&_svg]:size-6",
 			},
+			color: colorVariants,
 		},
 		defaultVariants: {
 			variant: "default",
@@ -511,20 +503,24 @@ function SidebarMenuButton({
 	isActive = false,
 	variant = "default",
 	size = "default",
+	color,
 	tooltip,
 	className,
 	...props
 }: useRender.ComponentProps<"button"> &
 	React.ComponentProps<"button"> & {
 		isActive?: boolean
-		tooltip?: string | React.ComponentProps<typeof TooltipContent>
+		tooltip?: React.ReactNode | React.ComponentProps<typeof TooltipContent>
 	} & VariantProps<typeof sidebarMenuButtonVariants>) {
 	const { state } = useSidebar()
 	const comp = useRender({
 		defaultTagName: "button",
 		props: mergeProps<"button">(
 			{
-				className: cn(sidebarMenuButtonVariants({ variant, size }), className),
+				className: cn(
+					sidebarMenuButtonVariants({ variant, size, color }),
+					className
+				),
 			},
 			props
 		),
@@ -541,11 +537,14 @@ function SidebarMenuButton({
 		return comp
 	}
 
-	if (typeof tooltip === "string") {
-		tooltip = {
-			children: tooltip,
-		}
-	}
+	// Anything that isn't a props object (string, JSX, number, ...) becomes the
+	// tooltip's children; a plain object is spread as TooltipContent props.
+	const tooltipProps: React.ComponentProps<typeof TooltipContent> =
+		typeof tooltip === "object" &&
+			!React.isValidElement(tooltip) &&
+			!Array.isArray(tooltip)
+			? (tooltip as React.ComponentProps<typeof TooltipContent>)
+			: { children: tooltip as React.ReactNode }
 
 	return (
 		<Tooltip>
@@ -554,7 +553,7 @@ function SidebarMenuButton({
 				side="right"
 				align="center"
 				hidden={state !== "collapsed"}
-				{...tooltip}
+				{...tooltipProps}
 			/>
 		</Tooltip>
 	)

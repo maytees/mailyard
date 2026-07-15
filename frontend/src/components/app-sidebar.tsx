@@ -10,10 +10,12 @@ import {
 	SidebarSeparator,
 } from "@/components/ui/sidebar"
 import MailyardIcon from "./MailyardIcon"
+import { MailboxList } from "./mailbox-list"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
-import { Button } from "./ui/button"
-import { CatIcon, MailIcon, MailPlus, PlusSignIcon, SchoolIcon, Work, WorkIcon, YogaMatIcon } from "@hugeicons/core-free-icons"
+import { AidsIcon, PencilIcon, RoboticIcon, Sparkles, TokenSquareIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { KbdShortcut } from "./ui/kbd"
+import { ThemeToggle } from "./theme-toggle"
 
 export function AppSidebar() {
 	return (
@@ -34,38 +36,33 @@ export function AppSidebar() {
 			<SidebarSeparator className={"max-w-10 mx-auto"} />
 			<SidebarContent>
 				<SidebarGroup>
-					<SidebarMenuItem className="mt-0! pt-0!">
-						<SidebarMenuButton tooltip={"Personal (maythamajam@gmail.com)"} className="[&_svg]:size-5 bg-violet-500/20 hover:bg-violet-500/10 rounded-lg" size={"default"}>
-							<HugeiconsIcon icon={MailIcon} />
-						</SidebarMenuButton>
-					</SidebarMenuItem>
-
-					<SidebarMenuItem>
-						<SidebarMenuButton tooltip={"Personal 2 (mateespublicprofile@gmail.com)"} className="[&_svg]:size-5 bg-rose-500/20 hover:bg-rose-500/10 rounded-lg" size={"default"}>
-							<HugeiconsIcon icon={YogaMatIcon} />
-						</SidebarMenuButton>
-					</SidebarMenuItem>
-
-					<SidebarMenuItem>
-						<SidebarMenuButton tooltip={"School (majam@gmu.edu)"} className="[&_svg]:size-5 bg-blue-500/20 hover:bg-blue-500/10 rounded-lg" size={"default"}>
-							<HugeiconsIcon icon={SchoolIcon} />
-						</SidebarMenuButton>
-					</SidebarMenuItem>
-
-					<SidebarMenuItem>
-						<SidebarMenuButton tooltip={"Petzio (majam@gmu.edu)"} className="[&_svg]:size-5 bg-emerald-500/20 hover:bg-emerald-500/10 rounded-lg" size={"default"}>
-							<HugeiconsIcon icon={CatIcon} />
-						</SidebarMenuButton>
-					</SidebarMenuItem>
-
-					<SidebarMenuItem>
-						<SidebarMenuButton tooltip={"Add Mailbox"} className="[&_svg]:size-5 rounded-lg" variant={"outline"} size={"default"}>
-							<HugeiconsIcon icon={MailPlus} />
-						</SidebarMenuButton>
-					</SidebarMenuItem>
+					<MailboxList />
 				</SidebarGroup>
 			</SidebarContent>
-			<SidebarFooter />
+			<SidebarFooter className="mb-5">
+				<SidebarMenu className="gap-3">
+					<SidebarMenuItem>
+					</SidebarMenuItem>
+					<SidebarMenuButton
+						tooltip={<KbdShortcut shortcut=".">AI</KbdShortcut>}
+						size="default"
+						className="rounded-full shimmer"
+					>
+						<HugeiconsIcon icon={TokenSquareIcon} />
+					</SidebarMenuButton>
+
+					<SidebarMenuItem>
+						<ThemeToggle />
+					</SidebarMenuItem>
+					<SidebarMenuItem>
+						<SidebarMenuButton tooltip={
+							<KbdShortcut shortcut="alt+c">Compose</KbdShortcut>
+						} size={"md"} color="rose" className="rounded-full" >
+							<HugeiconsIcon className="-rotate-35" icon={PencilIcon} />
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+				</SidebarMenu>
+			</SidebarFooter>
 		</Sidebar>
 	)
 }

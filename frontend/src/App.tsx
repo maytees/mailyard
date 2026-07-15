@@ -26,7 +26,7 @@ export function App() {
 					(Press <kbd>d</kbd> to toggle dark mode)
 				</div>
 
-				<p>Greet state: {greetState}</p>
+				<p className="shimmer shimmer-color-primary text-muted-foreground">Greet state: {greetState}</p>
 			</div>
 		</div>
 	);
