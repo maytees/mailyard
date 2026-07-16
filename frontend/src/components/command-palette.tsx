@@ -247,7 +247,7 @@ function CommandPalette({
       onOpenChange={onOpenChange}
       title="Search & Commands"
       description="Search your mail or run a command"
-      className="sm:max-w-2xl"
+      className="top-1/2 -translate-y-1/2 sm:max-w-2xl"
     >
       <Command>
         <CommandInput
