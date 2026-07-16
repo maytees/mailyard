@@ -7,20 +7,27 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
-	SidebarSeparator,
+	// SidebarSeparator,
 } from "@/components/ui/sidebar"
-import MailyardIcon from "./MailyardIcon"
+// import MailyardIcon from "./MailyardIcon"
 import { MailboxList } from "./mailbox-list"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { PencilIcon, TokenSquareIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { KbdShortcut } from "./ui/kbd"
 import { ThemeToggle } from "./theme-toggle"
+import { useEffect, useState } from "react"
+import { useWindowStore } from "@/stores/window"
+import { cn } from "@/lib/utils"
 
 export function AppSidebar() {
+	const { isFullscreen } = useWindowStore()
+
 	return (
 		<Sidebar variant="sidebar" className="" collapsible="icon">
-			<SidebarHeader className="pt-15">
+			<SidebarHeader className={cn("pt-15", {
+				"pt-4": isFullscreen
+			})}>
 				<SidebarMenu className="items-center">
 					<SidebarMenuItem className="flex items-center justify-center">
 						<Avatar size="lg">
@@ -28,12 +35,12 @@ export function AppSidebar() {
 							<AvatarFallback>MA</AvatarFallback>
 						</Avatar>
 					</SidebarMenuItem>
-					<SidebarMenuItem className="flex items-center justify-center">
+					{/*<SidebarMenuItem className="flex items-center justify-center">
 						<MailyardIcon />
-					</SidebarMenuItem>
+					</SidebarMenuItem>*/}
 				</SidebarMenu>
 			</SidebarHeader>
-			<SidebarSeparator className={"max-w-10 mx-auto"} />
+			{/*<SidebarSeparator className={"max-w-10 mx-auto"} />*/}
 			<SidebarContent>
 				<SidebarGroup>
 					<MailboxList />

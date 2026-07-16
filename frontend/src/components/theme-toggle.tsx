@@ -15,13 +15,19 @@ function subscribeToSystemTheme(callback: () => void) {
 	return () => mediaQuery.removeEventListener("change", callback)
 }
 
-export function ThemeToggle() {
-	const { theme, setTheme } = useTheme()
+/** Resolved theme, accounting for "system": true when the app is in dark mode. */
+export function useIsDarkTheme() {
+	const { theme } = useTheme()
 	const systemDark = React.useSyncExternalStore(
 		subscribeToSystemTheme,
 		() => window.matchMedia(COLOR_SCHEME_QUERY).matches
 	)
-	const isDark = theme === "system" ? systemDark : theme === "dark"
+	return theme === "system" ? systemDark : theme === "dark"
+}
+
+export function ThemeToggle() {
+	const { setTheme } = useTheme()
+	const isDark = useIsDarkTheme()
 
 	return (
 		<SidebarMenuButton
