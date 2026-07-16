@@ -26,6 +26,9 @@ export function AppSidebar() {
 	return (
 		<Sidebar variant="sidebar" className="" collapsible="icon">
 			<SidebarHeader className={cn("pt-15", {
+				// TODO: should probably check if macos as well, since macos has the things
+				// on the left, and windows or smthn else would have unnecessary padding. ok
+				// for now tho since we're only using macos.
 				"pt-4": isFullscreen
 			})}>
 				<SidebarMenu className="items-center">
