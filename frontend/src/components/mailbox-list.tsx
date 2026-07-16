@@ -89,7 +89,7 @@ export function MailboxList({
 					tooltip={
 						<KbdShortcut shortcut="alt+shift+m">Add Mailbox</KbdShortcut>
 					}
-					variant="outline"
+					variant="transparent"
 					size="default"
 					className="[&_svg]:size-5 rounded-lg"
 					onClick={onAddMailbox}

@@ -12,7 +12,7 @@ import {
 import MailyardIcon from "./MailyardIcon"
 import { MailboxList } from "./mailbox-list"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
-import { AidsIcon, PencilIcon, RoboticIcon, Sparkles, TokenSquareIcon } from "@hugeicons/core-free-icons"
+import { PencilIcon, TokenSquareIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { KbdShortcut } from "./ui/kbd"
 import { ThemeToggle } from "./theme-toggle"
@@ -45,7 +45,7 @@ export function AppSidebar() {
 					</SidebarMenuItem>
 					<SidebarMenuButton
 						tooltip={<KbdShortcut shortcut=".">AI</KbdShortcut>}
-						size="default"
+						size="md"
 						className="rounded-full shimmer"
 					>
 						<HugeiconsIcon icon={TokenSquareIcon} />
