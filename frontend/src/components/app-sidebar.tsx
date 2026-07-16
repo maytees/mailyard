@@ -56,7 +56,6 @@ export function AppSidebar() {
 					<SidebarMenuButton
 						tooltip={<KbdShortcut shortcut=".">AI</KbdShortcut>}
 						size="md"
-						className="rounded-full shimmer"
 					>
 						<HugeiconsIcon icon={TokenSquareIcon} />
 					</SidebarMenuButton>

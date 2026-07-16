@@ -33,7 +33,6 @@ export function ThemeToggle() {
 		<SidebarMenuButton
 			tooltip={<KbdShortcut shortcut="mod+d">Toggle Theme</KbdShortcut>}
 			size="md"
-			className="rounded-full"
 			aria-label="Toggle theme"
 			onClick={() => setTheme(isDark ? "light" : "dark")}
 		>
