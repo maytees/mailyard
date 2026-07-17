@@ -77,6 +77,20 @@ export function formatShortcutText(shortcut: string): string {
 	return formatShortcut(shortcut).join(isMac ? "" : "+")
 }
 
+/** True when the event target is a place the user types (input, textarea, contenteditable). */
+export function isEditableTarget(target: EventTarget | null): boolean {
+	if (!(target instanceof HTMLElement)) {
+		return false
+	}
+	if (target.isContentEditable) {
+		return true
+	}
+	return (
+		target.closest("input, textarea, select, [contenteditable='true']") !==
+		null
+	)
+}
+
 /**
  * Check a KeyboardEvent against a platform-neutral shortcut.
  * "mod" matches metaKey on macOS and ctrlKey on Windows/Linux; all other

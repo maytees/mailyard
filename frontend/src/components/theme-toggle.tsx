@@ -1,40 +1,21 @@
 import { Moon02Icon, Sun03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { motion } from "motion/react"
-import * as React from "react"
 
-import { useTheme } from "@/components/theme-provider"
+import { useThemeStore } from "@/stores/theme"
 import { KbdShortcut } from "@/components/ui/kbd"
 import { SidebarMenuButton } from "@/components/ui/sidebar"
 
-const COLOR_SCHEME_QUERY = "(prefers-color-scheme: dark)"
-
-function subscribeToSystemTheme(callback: () => void) {
-	const mediaQuery = window.matchMedia(COLOR_SCHEME_QUERY)
-	mediaQuery.addEventListener("change", callback)
-	return () => mediaQuery.removeEventListener("change", callback)
-}
-
-/** Resolved theme, accounting for "system": true when the app is in dark mode. */
-export function useIsDarkTheme() {
-	const { theme } = useTheme()
-	const systemDark = React.useSyncExternalStore(
-		subscribeToSystemTheme,
-		() => window.matchMedia(COLOR_SCHEME_QUERY).matches
-	)
-	return theme === "system" ? systemDark : theme === "dark"
-}
-
 export function ThemeToggle() {
-	const { setTheme } = useTheme()
-	const isDark = useIsDarkTheme()
+	const isDark = useThemeStore((s) => s.isDark)
+	const toggleTheme = useThemeStore((s) => s.toggleTheme)
 
 	return (
 		<SidebarMenuButton
 			tooltip={<KbdShortcut shortcut="mod+d">Toggle Theme</KbdShortcut>}
 			size="md"
 			aria-label="Toggle theme"
-			onClick={() => setTheme(isDark ? "light" : "dark")}
+			onClick={toggleTheme}
 		>
 			{/* Keyed on theme so a toggle remounts the icon and replays the spin-in. */}
 			<motion.span
