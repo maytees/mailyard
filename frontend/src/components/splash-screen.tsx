@@ -60,7 +60,7 @@ function LoaderDots() {
 			{[0, 1, 2].map((i) => (
 				<motion.span
 					key={i}
-					className="size-1.5 rounded-full bg-muted-foreground/70"
+					className="size-1.5 rounded-full bg-foreground/80"
 					animate={{ opacity: [0.25, 1, 0.25], scale: [1, 1.25, 1] }}
 					transition={{
 						duration: 1.2,

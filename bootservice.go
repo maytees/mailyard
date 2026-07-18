@@ -20,6 +20,10 @@ func (b *BootService) ServiceStartup(ctx context.Context, options application.Se
 	// Future startup work goes here. Keep it local-only (DB, cache, keychain);
 	// IMAP sync starts after the app is revealed, never before.
 
+	// DEV: uncomment to hold the splash open for a closer look. (The React
+	// splash's minimum display time is MIN_SPLASH_MS in frontend/src/lib/bootstrap.ts.)
+	// time.Sleep(4 * time.Second)
+
 	b.mu.Lock()
 	b.ready = true
 	b.mu.Unlock()
