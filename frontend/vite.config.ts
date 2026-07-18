@@ -15,6 +15,8 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "./src"),
+			// Mirrors the tsconfig "~/*" path (frontend root — used for bindings).
+			"~": path.resolve(__dirname, "."),
 		},
 	},
 })

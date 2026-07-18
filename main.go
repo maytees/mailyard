@@ -4,6 +4,7 @@ import (
 	"embed"
 
 	"log"
+	"sync"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -22,6 +23,11 @@ func init() {
 	// This is not required, but the binding generator will pick up registered events
 	// and provide a strongly typed JS/TS API for them.
 	application.RegisterEvent[string]("time")
+
+	// Boot handshake: Go announces backend readiness, the frontend announces
+	// that its boot gates passed (which triggers the splash → main swap).
+	application.RegisterEvent[bool]("backend:ready")
+	application.RegisterEvent[bool]("frontend:ready")
 }
 
 // main function serves as the application's entry point. It initializes the application, creates a window,
@@ -39,6 +45,7 @@ func main() {
 		Description: "A unified AI inbox.",
 		Services: []application.Service{
 			application.NewService(&GreetService{}),
+			application.NewService(&BootService{}),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -48,12 +55,32 @@ func main() {
 		},
 	})
 
+	// Native splash: a tiny frameless window that paints instantly while the
+	// main webview loads. It serves the static splash.html (not the React
+	// app — loading "/" here would boot a second app instance).
+	// The window itself is transparent; splash.html draws a rounded,
+	// theme-aware card inside it, so the visible shape has app-like corners.
+	splash := app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name:             "splash",
+		Width:            420,
+		Height:           280,
+		Frameless:        true,
+		DisableResize:    true,
+		BackgroundType:   application.BackgroundTypeTransparent,
+		BackgroundColour: application.NewRGBA(0, 0, 0, 0),
+		Mac: application.MacWindow{
+			Backdrop: application.MacBackdropTransparent,
+		},
+		URL: "/splash.html",
+	})
+
 	// Create a new window with the necessary options.
 	// 'Title' is the title of the window.
 	// 'Mac' options tailor the window when running on macOS.
 	// 'BackgroundColour' is the background colour of the window.
 	// 'URL' is the URL that will be loaded into the webview.
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
+	mainWindow := app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name:  "main",
 		Title: "Mailyard",
 		// Window sized to the golden ratio (1000 / 618 ≈ 1.618).
 		Width:  1280,
@@ -65,7 +92,29 @@ func main() {
 		},
 		BackgroundColour: application.NewRGB(6, 7, 15),
 		URL:              "/",
+		Hidden:           true,
 	})
+
+	// Swap splash → main when the frontend's boot gates pass. Once-guarded so
+	// the failsafe below and the event can't double-fire.
+	var revealOnce sync.Once
+	reveal := func() {
+		revealOnce.Do(func() {
+			mainWindow.Show()
+			splash.Close()
+		})
+	}
+
+	app.Event.On("frontend:ready", func(event *application.CustomEvent) {
+		reveal()
+	})
+
+	// Failsafe: a wedged frontend must never leave the user staring at the
+	// splash forever.
+	go func() {
+		time.Sleep(10 * time.Second)
+		reveal()
+	}()
 
 	// Create a goroutine that emits an event containing the current time every second.
 	// The frontend can listen to this event and update the UI accordingly.
