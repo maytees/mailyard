@@ -65,6 +65,7 @@ func main() {
 		Width:            420,
 		Height:           280,
 		Frameless:        true,
+		AlwaysOnTop:      true,
 		DisableResize:    true,
 		BackgroundType:   application.BackgroundTypeTransparent,
 		BackgroundColour: application.NewRGBA(0, 0, 0, 0),
