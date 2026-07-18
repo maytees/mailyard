@@ -56,7 +56,7 @@ function SplashScreen() {
 
 function LoaderDots() {
 	return (
-		<div className="flex gap-2" role="status" aria-label="Loading Mailyard">
+		<div className="flex gap-2">
 			{[0, 1, 2].map((i) => (
 				<motion.span
 					key={i}
