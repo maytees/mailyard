@@ -64,6 +64,8 @@ func main() {
 		Name:             "splash",
 		Width:            420,
 		Height:           280,
+		MinWidth:         420,
+		MinHeight:        280,
 		Frameless:        true,
 		AlwaysOnTop:      true,
 		DisableResize:    true,
@@ -84,8 +86,10 @@ func main() {
 		Name:  "main",
 		Title: "Mailyard",
 		// Window sized to the golden ratio (1000 / 618 ≈ 1.618).
-		Width:  1280,
-		Height: 791,
+		Width:     1280,
+		Height:    791,
+		MinWidth:  1000,
+		MinHeight: 700,
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
 			Backdrop:                application.MacBackdropTranslucent,

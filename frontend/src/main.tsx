@@ -24,7 +24,7 @@ createRoot(document.getElementById("root")!).render(
 				<CommandPaletteProvider>
 					<SidebarProvider defaultOpen={false}>
 						<AppSidebar />
-						<main>
+						<main className="w-full">
 							<App />
 						</main>
 					</SidebarProvider>

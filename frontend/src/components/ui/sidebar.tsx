@@ -6,7 +6,11 @@ import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
-import { colorVariants } from "@/lib/mailbox-colors"
+import {
+	accentFilled,
+	colorVariants,
+	mailboxColors,
+} from "@/lib/mailbox-colors"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
@@ -493,6 +497,8 @@ const sidebarMenuButtonVariants = cva(
 			},
 			color: colorVariants,
 		},
+		// Colors set CSS variables; the filled treatment applies them.
+		compoundVariants: [{ color: mailboxColors, className: accentFilled }],
 		defaultVariants: {
 			variant: "default",
 			size: "default",

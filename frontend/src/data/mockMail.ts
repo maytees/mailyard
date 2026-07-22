@@ -1,5 +1,6 @@
 // Mock mail dataset for UI development until the Go backend feeds real IMAP data.
 // Accounts mirror the mailboxes in the sidebar rail (see mailbox-list.tsx).
+import type { MailboxColor } from "@/lib/mailbox-colors"
 
 export type AccountId = "personal" | "personal-2" | "school" | "petzio"
 
@@ -29,6 +30,9 @@ export interface ThreadEntry {
 	sender: string
 	email: string
 	time: string
+	/** Recipients; defaults to the owning account's address when omitted. */
+	to?: string[]
+	cc?: string[]
 	snippet?: string
 	blocks: MessageBlock[]
 	attachments: Attachment[]
@@ -53,8 +57,15 @@ export interface MockMail {
 	messages: Message[]
 }
 
-// Temporary — mailbox colors are user-defined eventually. Values come from the
-// mailbox accent palette in index.css (Tailwind 500s).
+// Temporary — mailbox colors are user-defined eventually.
+export const mailboxColorNames: Record<AccountId, MailboxColor> = {
+	personal: "violet",
+	"personal-2": "rose",
+	school: "blue",
+	petzio: "emerald",
+}
+
+// CSS values from the mailbox accent palette in index.css (Tailwind 500s).
 export const mailboxToColor: Record<AccountId, string> = {
 	personal: "var(--color-mailbox-violet)",
 	"personal-2": "var(--color-mailbox-rose)",
@@ -149,6 +160,8 @@ export const mockMail: MockMail = {
 					sender: "Priya Nair",
 					email: "pnair@gmu.edu",
 					time: "Today, 9:42 AM",
+					to: ["majam@gmu.edu"],
+					cc: ["trivera@gmu.edu"],
 					snippet: "v2 attached with your section 2 notes folded in…",
 					blocks: [
 						{

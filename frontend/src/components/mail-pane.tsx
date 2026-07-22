@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/input-group";
 import { KbdShortcut } from "@/components/ui/kbd";
 import { formatShortcut } from "@/lib/keyboard";
+import { useMailStore } from "@/stores/mail";
 import { useSettingsStore } from "@/stores/settings";
 
 /** Account summary + density toggle + the search trigger. */
@@ -66,10 +67,16 @@ function MailPaneHeader() {
 
 /** The second sidebar: header + scrollable message list. */
 export function MailPane() {
+	const activeMessageId = useMailStore((s) => s.activeMessageId);
+	const setActiveMessage = useMailStore((s) => s.setActiveMessage);
+
 	return (
 		<div className="flex h-svh bg-secondary max-w-md flex-col border-r">
 			<MailPaneHeader />
-			<MailList />
+			<MailList
+				activeId={activeMessageId ?? undefined}
+				onSelect={(message) => setActiveMessage(message.id)}
+			/>
 		</div>
 	);
 }
