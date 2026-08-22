@@ -5,7 +5,7 @@ import { Events } from "@wailsio/runtime"
 
 import { useSettingsStore } from "@/stores/settings"
 import { initWindowStore } from "@/stores/window"
-import { IsBackendReady } from "~/bindings/changeme/bootservice"
+import { IsBackendReady } from "~/bindings/mailyard/bootservice"
 
 export interface BootGate {
 	name: string

@@ -10,7 +10,6 @@ declare module "@wailsio/runtime" {
         interface CustomEvents {
             "backend:ready": boolean;
             "frontend:ready": boolean;
-            "time": string;
         }
     }
 }
