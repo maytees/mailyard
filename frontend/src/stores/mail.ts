@@ -147,6 +147,15 @@ export function selectNeighborMessage(direction: 1 | -1) {
 	}
 }
 
+/** The selected message — from the list page or a detached search hit. */
+export function getActiveMessage(): Message | undefined {
+	const { messages, activeMessageId, detachedMessage } = useMailStore.getState()
+	return (
+		messages.find((m) => m.id === activeMessageId) ??
+		(detachedMessage?.id === activeMessageId ? detachedMessage : undefined)
+	)
+}
+
 /** Opens a message that may live outside the current view (search hits). */
 export function openMessage(message: Message) {
 	useMailStore.setState({

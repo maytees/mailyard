@@ -31,7 +31,9 @@ createRoot(document.getElementById("root")!).render(
 				<CommandPaletteProvider>
 					<SidebarProvider defaultOpen={false}>
 						<AppSidebar />
-						<main className="w-full">
+						{/* min-w-0 + clip: a flex item's min-width defaults to its
+						    content, so one wide email could widen the whole shell. */}
+						<main className="w-full min-w-0 overflow-x-clip">
 							<App />
 						</main>
 						<AddMailboxDialog />

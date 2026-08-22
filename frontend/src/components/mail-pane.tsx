@@ -108,7 +108,7 @@ export function MailPane() {
 	const folderRole = useMailStore((s) => s.folderRole);
 
 	return (
-		<div className="flex h-svh bg-secondary max-w-md flex-col border-r">
+		<div className="flex h-svh shrink-0 bg-secondary max-w-md flex-col border-r">
 			<MailPaneHeader />
 			<MailList
 				messages={messages}

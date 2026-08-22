@@ -5,7 +5,7 @@ import { Events } from "@wailsio/runtime"
 import { toast } from "sonner"
 
 import { setComposeField, useComposeStore } from "@/stores/compose"
-import { useMailStore } from "@/stores/mail"
+import { getActiveMessage, useMailStore } from "@/stores/mail"
 import * as AIService from "~/bindings/mailyard/aiservice"
 import type {
 	ActionItem,
@@ -249,11 +249,7 @@ export function setTranslateOpen(open: boolean) {
 }
 
 export function activeMailMessage(): Message | undefined {
-	const { messages, activeMessageId, detachedMessage } = useMailStore.getState()
-	return (
-		messages.find((m) => m.id === activeMessageId) ??
-		(detachedMessage?.id === activeMessageId ? detachedMessage : undefined)
-	)
+	return getActiveMessage()
 }
 
 // ---- per-message artifacts (list digests + triage badges) ------------------

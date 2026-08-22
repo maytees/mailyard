@@ -146,7 +146,9 @@ func newRequestID() string {
 
 // streamRequest runs one streaming generation in the background, emitting
 // chunks on "ai:stream". onDone (optional) receives the accumulated text.
-func (s *Service) streamRequest(system, prompt string, onDone func(full string)) (string, error) {
+// maxOutputTokens is a hard runaway stop — local models especially ignore
+// length instructions in prompts.
+func (s *Service) streamRequest(system, prompt string, maxOutputTokens int, onDone func(full string)) (string, error) {
 	// Validate configuration up front so the caller gets a friendly error
 	// instead of a stream that instantly fails.
 	model, _, err := s.model(context.Background())
@@ -156,10 +158,14 @@ func (s *Service) streamRequest(system, prompt string, onDone func(full string))
 
 	requestID := newRequestID()
 	go func() {
-		stream, err := goai.StreamText(context.Background(), model,
+		options := []goai.Option{
 			goai.WithSystem(system),
 			goai.WithPrompt(prompt),
-		)
+		}
+		if maxOutputTokens > 0 {
+			options = append(options, goai.WithMaxOutputTokens(maxOutputTokens))
+		}
+		stream, err := goai.StreamText(context.Background(), model, options...)
 		if err != nil {
 			s.emit(StreamChunk{RequestID: requestID, Done: true, Error: err.Error()})
 			return

@@ -117,7 +117,9 @@ function MailThread({ message }: { message: Message }) {
 			initial={{ opacity: 0, y: 6 }}
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ duration: 0.18, ease: "easeOut" }}
-			className="flex h-svh flex-1 min-w-0 flex-col"
+			// max-w-full + clip: the reading pane can never exceed its flex
+			// allocation, whatever an email renders inside it.
+			className="flex h-svh flex-1 min-w-0 max-w-full flex-col overflow-x-clip"
 		>
 			<header className="flex shrink-0 flex-row items-start justify-between gap-4 border-b px-6 pt-5 pb-4">
 				<div className="flex min-w-0 flex-col gap-1.5">

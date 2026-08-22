@@ -4,6 +4,7 @@
 import { toast } from "sonner"
 
 import {
+	getActiveMessage,
 	refreshMailList,
 	refreshUnreadCounts,
 	useMailStore,
@@ -13,10 +14,7 @@ import type { Message } from "~/bindings/mailyard/internal/store/models"
 
 const UNDO_WINDOW_MS = 5000
 
-function activeMessage(): Message | undefined {
-	const { messages, activeMessageId } = useMailStore.getState()
-	return messages.find((m) => m.id === activeMessageId)
-}
+const activeMessage = getActiveMessage
 
 /** Optimistically drops a row and advances the selection to its neighbor. */
 function removeRowLocally(id: number) {

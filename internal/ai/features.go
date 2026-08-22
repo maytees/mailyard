@@ -31,10 +31,13 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 	}
 	config, _ := s.Config(ctx)
 	return s.streamRequest(
-		"You summarize email threads. Reply with a tight summary in 2-4 sentences, "+
-			"then, only if the thread contains explicit questions or deadlines, one short "+
-			"line starting with \"Needs:\". No preamble, no markdown headers.",
+		"Summarize the email thread in 1-3 plain sentences, 60 words maximum. "+
+			"Output ONLY those sentences — no headings, no bullet points, no bold, "+
+			"no links, no horizontal rules, no preamble like \"Here's a summary\", "+
+			"and no closing commentary. Write like a terse human assistant: who "+
+			"wants what, what was decided, what happens next.",
 		text,
+		200,
 		func(full string) {
 			if err := s.Store.ArtifactSet(context.Background(),
 				store.ArtifactThreadSummary, threadID, full, config.Model); err != nil {
@@ -55,10 +58,12 @@ func (s *Service) DraftReply(ctx context.Context, accountID, threadID string) (s
 		return "", err
 	}
 	return s.streamRequest(
-		fmt.Sprintf("You draft email replies for %s <%s>. Write only the reply body — "+
-			"no subject line, no quoted original, no signature placeholders. Match the "+
-			"thread's tone and language; be concise.", account.DisplayName, account.Email),
+		fmt.Sprintf("You draft email replies for %s <%s>. Write only the reply body "+
+			"as plain text — no subject line, no quoted original, no signature "+
+			"placeholders, no markdown. Match the thread's tone and language; be "+
+			"concise.", account.DisplayName, account.Email),
 		text,
+		400,
 		nil,
 	)
 }
@@ -67,8 +72,10 @@ func (s *Service) DraftReply(ctx context.Context, accountID, threadID string) (s
 func (s *Service) Rewrite(text, tone string) (string, error) {
 	return s.streamRequest(
 		fmt.Sprintf("Rewrite the given email draft to be %s. Keep the meaning and any "+
-			"factual details. Reply with only the rewritten draft.", tone),
+			"factual details. Reply with only the rewritten draft as plain text — "+
+			"no markdown, no commentary.", tone),
 		text,
+		600,
 		nil,
 	)
 }
@@ -77,8 +84,9 @@ func (s *Service) Rewrite(text, tone string) (string, error) {
 func (s *Service) Translate(text, language string) (string, error) {
 	return s.streamRequest(
 		fmt.Sprintf("Translate the given email into %s. Preserve tone and formatting. "+
-			"Reply with only the translation.", language),
+			"Reply with only the translation — no commentary.", language),
 		text,
+		1200,
 		nil,
 	)
 }
@@ -218,8 +226,9 @@ func (s *Service) GenerateListSummaries(ctx context.Context, limit int) (int, er
 		return 0, err
 	}
 	result, err := goai.GenerateObject[summariesOutput](ctx, model,
-		goai.WithSystem("Write a one-line digest (max 18 words) for each email: "+
-			"what it is and what, if anything, the reader must do."),
+		goai.WithSystem("Write a one-line plain-text digest (max 18 words, no "+
+			"markdown) for each email: what it is and what, if anything, the "+
+			"reader must do."),
 		goai.WithPrompt(b.String()),
 	)
 	if err != nil {

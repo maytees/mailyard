@@ -16,7 +16,7 @@ export function App() {
 		return <Onboarding />;
 	}
 
-	return <div className="flex flex-row w-full">
+	return <div className="flex flex-row w-full min-w-0 max-w-full">
 		<MailPane />
 		{/* hidden for now, dont even know if i'll show this */}
 		<nav className="bg-secondary hidden px-4 border-b  flex-row items-center justify-between h-16 w-full">

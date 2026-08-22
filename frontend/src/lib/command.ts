@@ -23,6 +23,7 @@ import {
 	openCompose,
 } from "@/stores/compose"
 import {
+	getActiveMessage,
 	refreshMailList,
 	refreshUnreadCounts,
 	selectNeighborMessage,
@@ -37,10 +38,14 @@ import * as SyncService from "~/bindings/mailyard/syncservice"
 import * as TransferService from "~/bindings/mailyard/transferservice"
 import { toast } from "sonner"
 
-/** The message the list currently has selected, if any. */
+/** The selected message (list page or detached search hit), or a toast —
+ * message-context commands must never silently do nothing. */
 function activeMessage() {
-	const { messages, activeMessageId } = useMailStore.getState()
-	return messages.find((m) => m.id === activeMessageId)
+	const message = getActiveMessage()
+	if (!message) {
+		toast("Select an email first")
+	}
+	return message
 }
 import {
 	AiBrain01Icon,
