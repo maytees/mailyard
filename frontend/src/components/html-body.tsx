@@ -14,6 +14,9 @@ const RESET_CSS = `
 		line-height: 1.6;
 		word-break: break-word;
 		overflow-wrap: anywhere;
+		/* Fixed-width newsletter tables can't push past the pane; the host
+		   div scrolls them horizontally instead. */
+		max-width: 100%;
 	}
 	.mail-root img { max-width: 100%; height: auto; }
 	.mail-root a { color: var(--color-primary, #c62a45); text-decoration: underline; }
@@ -103,7 +106,10 @@ export function HtmlBody({ html }: { html: string }) {
 					</Button>
 				</div>
 			)}
-			<div ref={hostRef} />
+			{/* Wide emails (fixed-width tables, styled divs) scroll inside this
+			    host instead of stretching the flex layout — min-width:auto on
+			    flex ancestors would otherwise shove the whole app sideways. */}
+			<div ref={hostRef} className="min-w-0 max-w-full overflow-x-auto" />
 		</div>
 	)
 }

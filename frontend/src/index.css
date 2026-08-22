@@ -150,6 +150,13 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* The app shell must never scroll sideways — wide email content scrolls
+     inside its own container (see html-body.tsx), not by shoving the whole
+     layout past the window edge. */
+  html,
+  body {
+    overflow-x: clip;
+  }
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
