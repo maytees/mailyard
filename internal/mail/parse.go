@@ -37,7 +37,9 @@ type ParsedMessage struct {
 	TextBody      string
 	HTMLSanitized string
 	Snippet       string
-	Attachments   []ParsedAttachment
+	// Raw List-Unsubscribe header value ("" when absent).
+	ListUnsubscribe string
+	Attachments     []ParsedAttachment
 }
 
 // htmlPolicy keeps email markup (tables, inline styles, images) while
@@ -94,6 +96,7 @@ func ParseMessage(raw []byte) (*ParsedMessage, error) {
 	}
 	parsed.To = toAddresses(header, "To")
 	parsed.Cc = toAddresses(header, "Cc")
+	parsed.ListUnsubscribe = header.Get("List-Unsubscribe")
 
 	for {
 		part, err := reader.NextPart()

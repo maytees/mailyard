@@ -9,6 +9,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
+	"mailyard/internal/ai"
 	"mailyard/internal/mail"
 )
 
@@ -32,6 +33,10 @@ func init() {
 	// Sync engine → UI: a folder's local mail changed / per-account status.
 	application.RegisterEvent[mail.MailChanged]("mail:changed")
 	application.RegisterEvent[mail.SyncStatus]("sync:status")
+
+	// AI streaming chunks + background artifact refreshes.
+	application.RegisterEvent[ai.StreamChunk]("ai:stream")
+	application.RegisterEvent[bool]("ai:artifacts-updated")
 }
 
 // main is the application's entry point: it wires up the Wails app, the
@@ -53,6 +58,7 @@ func main() {
 			application.NewService(&MailService{boot: boot, sync: syncSvc}),
 			application.NewService(&SendService{sync: syncSvc}),
 			application.NewService(&SearchService{boot: boot}),
+			application.NewService(&AIService{boot: boot}),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

@@ -60,6 +60,8 @@ type Message struct {
 	HasAttachments bool      `json:"hasAttachments"`
 	Size           int64     `json:"size"`
 	SnoozedUntil   int64     `json:"snoozedUntil"`
+	// Raw List-Unsubscribe header, for the unsubscribe-suggestions feature.
+	ListUnsubscribe string `json:"-"`
 }
 
 type MessageBody struct {

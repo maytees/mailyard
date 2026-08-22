@@ -466,6 +466,7 @@ func (e *Engine) storeMessage(ctx context.Context, account store.Account, folder
 		message.To = parsed.To
 		message.Cc = parsed.Cc
 		message.Snippet = parsed.Snippet
+		message.ListUnsubscribe = parsed.ListUnsubscribe
 		message.HasAttachments = len(parsed.Attachments) > 0
 		if !parsed.Date.IsZero() {
 			message.Date = parsed.Date.Unix()

@@ -10,6 +10,7 @@ require (
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/wailsapp/wails/v3 v3.0.0-alpha2.117
 	github.com/zalando/go-keyring v0.2.8
+	github.com/zendev-sh/goai v0.9.6
 	modernc.org/sqlite v1.57.0
 )
 

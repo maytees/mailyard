@@ -66,3 +66,16 @@ export interface MessageBody {
     "textBody": string;
     "htmlSanitized": string;
 }
+
+/**
+ * UnsubscribeCandidate is a sender worth reviewing: frequent, often unread,
+ * ideally with a working unsubscribe link.
+ */
+export interface UnsubscribeCandidate {
+    "fromEmail": string;
+    "fromName": string;
+    "count": number;
+    "unreadCount": number;
+    "lastDate": number;
+    "unsubscribeUrl": string;
+}

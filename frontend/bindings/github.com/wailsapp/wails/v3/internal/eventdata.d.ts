@@ -7,12 +7,17 @@ import type { Events } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import type * as ai$0 from "../../../../../mailyard/internal/ai/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import type * as mail$0 from "../../../../../mailyard/internal/mail/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
             "accounts:changed": boolean;
+            "ai:artifacts-updated": boolean;
+            "ai:stream": ai$0.StreamChunk;
             "backend:ready": boolean;
             "frontend:ready": boolean;
             "mail:changed": mail$0.MailChanged;

@@ -16,7 +16,7 @@ const messageColumns = `
 	m.id, m.account_id, m.folder_id, m.uid, m.message_id, m.refs, m.thread_id,
 	m.subject, m.from_name, m.from_email, m.to_json, m.cc_json, m.date,
 	m.snippet, m.is_unread, m.is_starred, m.is_answered, m.has_attachments,
-	m.size, m.snoozed_until`
+	m.size, m.snoozed_until, m.list_unsubscribe`
 
 func scanMessage(row interface{ Scan(...any) error }) (Message, error) {
 	var m Message
@@ -24,7 +24,8 @@ func scanMessage(row interface{ Scan(...any) error }) (Message, error) {
 	err := row.Scan(&m.ID, &m.AccountID, &m.FolderID, &m.UID, &m.MessageID,
 		&m.Refs, &m.ThreadID, &m.Subject, &m.From.Name, &m.From.Email,
 		&toJSON, &ccJSON, &m.Date, &m.Snippet, &m.Unread, &m.Starred,
-		&m.Answered, &m.HasAttachments, &m.Size, &m.SnoozedUntil)
+		&m.Answered, &m.HasAttachments, &m.Size, &m.SnoozedUntil,
+		&m.ListUnsubscribe)
 	if err != nil {
 		return Message{}, err
 	}
@@ -88,13 +89,14 @@ func (s *Store) UpsertMessage(ctx context.Context, m Message) (int64, bool, erro
 		INSERT INTO messages
 			(account_id, folder_id, uid, message_id, refs, thread_id, subject,
 			 from_name, from_email, to_json, cc_json, date, snippet,
-			 is_unread, is_starred, is_answered, has_attachments, size, snoozed_until)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			 is_unread, is_starred, is_answered, has_attachments, size,
+			 snoozed_until, list_unsubscribe)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING id`,
 		m.AccountID, m.FolderID, m.UID, m.MessageID, m.Refs, threadID,
 		m.Subject, m.From.Name, m.From.Email, string(toJSON), string(ccJSON),
 		m.Date, m.Snippet, m.Unread, m.Starred, m.Answered,
-		m.HasAttachments, m.Size, m.SnoozedUntil).Scan(&id); err != nil {
+		m.HasAttachments, m.Size, m.SnoozedUntil, m.ListUnsubscribe).Scan(&id); err != nil {
 		return 0, false, err
 	}
 
