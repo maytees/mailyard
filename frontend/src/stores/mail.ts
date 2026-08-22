@@ -114,6 +114,24 @@ export function setActiveMessage(id: number | null) {
 	)
 }
 
+/** Moves the selection down/up the list (j/k). */
+export function selectNeighborMessage(direction: 1 | -1) {
+	const { messages, activeMessageId } = useMailStore.getState()
+	if (messages.length === 0) return
+	const index = messages.findIndex((m) => m.id === activeMessageId)
+	if (index === -1) {
+		setActiveMessage(messages[0].id)
+		return
+	}
+	const next = messages[index + direction]
+	if (next) {
+		setActiveMessage(next.id)
+	} else if (direction === 1) {
+		// Fetch the next page when j runs off the end.
+		void loadMoreMessages()
+	}
+}
+
 /** Opens a message that may live outside the current view (search hits). */
 export function openMessage(message: Message) {
 	useMailStore.setState({

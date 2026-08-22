@@ -2,6 +2,7 @@ import { Moon02Icon, Sun03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { motion } from "motion/react"
 
+import { shortcutFor } from "@/lib/command"
 import { useThemeStore } from "@/stores/theme"
 import { KbdShortcut } from "@/components/ui/kbd"
 import { SidebarMenuButton } from "@/components/ui/sidebar"
@@ -12,7 +13,11 @@ export function ThemeToggle() {
 
 	return (
 		<SidebarMenuButton
-			tooltip={<KbdShortcut shortcut="mod+d">Toggle Theme</KbdShortcut>}
+			tooltip={
+				<KbdShortcut shortcut={shortcutFor("toggle-theme") ?? ""}>
+					Toggle Theme
+				</KbdShortcut>
+			}
 			size="md"
 			aria-label="Toggle theme"
 			onClick={toggleTheme}

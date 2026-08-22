@@ -5,9 +5,13 @@ import { create } from "zustand"
 interface UIState {
 	addMailboxOpen: boolean
 	setAddMailboxOpen: (open: boolean) => void
+	shortcutHelpOpen: boolean
+	setShortcutHelpOpen: (open: boolean) => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
 	addMailboxOpen: false,
 	setAddMailboxOpen: (open) => set({ addMailboxOpen: open }),
+	shortcutHelpOpen: false,
+	setShortcutHelpOpen: (open) => set({ shortcutHelpOpen: open }),
 }))

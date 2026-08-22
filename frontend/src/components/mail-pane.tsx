@@ -10,6 +10,7 @@ import {
 	InputGroupInput,
 } from "@/components/ui/input-group";
 import { KbdShortcut } from "@/components/ui/kbd";
+import { shortcutFor } from "@/lib/command";
 import { formatShortcut } from "@/lib/keyboard";
 import { useAccountsStore } from "@/stores/accounts";
 import { setActiveMessage, useMailStore } from "@/stores/mail";
@@ -67,7 +68,8 @@ function MailPaneHeader() {
 					size={"xs"}
 					onClick={toggleCompact}
 				>
-					{compact ? "Cozy" : "Compact"} {formatShortcut("mod+b")}
+					{compact ? "Cozy" : "Compact"}{" "}
+					{formatShortcut(shortcutFor("toggle-compact") ?? "")}
 				</Button>
 			</div>
 			{/* Placeholder search — the command palette IS the search. Opens on

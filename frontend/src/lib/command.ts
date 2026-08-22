@@ -7,10 +7,13 @@ import {
 	toggleStarActive,
 	trashActive,
 } from "@/lib/mail-actions"
+import { useAccountsStore } from "@/stores/accounts"
 import { composeFromMessage, openCompose } from "@/stores/compose"
 import {
 	refreshMailList,
 	refreshUnreadCounts,
+	selectNeighborMessage,
+	setAccountFilter,
 	setFolderRole,
 	useMailStore,
 } from "@/stores/mail"
@@ -29,8 +32,10 @@ import {
 	AiEditingIcon,
 	Archive02Icon,
 	ArchiveIcon,
+	ArrowDown02Icon,
 	ArrowExpand01Icon,
 	ArrowShrink02Icon,
+	ArrowUp02Icon,
 	CheckListIcon,
 	Delete01Icon,
 	Delete02Icon,
@@ -39,6 +44,7 @@ import {
 	ForwardIcon,
 	InboxIcon,
 	InboxUnreadIcon,
+	KeyboardIcon,
 	Logout02Icon,
 	MagicWandIcon,
 	MailEditIcon,
@@ -68,10 +74,17 @@ export interface AppCommand {
 	// they're rendered, instead of being frozen at module load.
 	label: string | (() => string)
 	icon: IconSvgElement | (() => IconSvgElement)
-	shortcut?: string // keyboard.ts format: "mod+b"
+	shortcut?: string // keyboard.ts format: "mod+b" (chord) or "g+i" (sequence)
 	group: CommandGroupHeading
 	/** Omitted for dummy commands — selecting them in the palette just closes it. */
 	run?: () => void
+	/** Keyboard-only commands: bound to their shortcut but kept out of the palette. */
+	hidden?: boolean
+}
+
+/** Shortcut for a command id, for tooltips — one source, no drift. */
+export function shortcutFor(id: string): string | undefined {
+	return commands.find((command) => command.id === id)?.shortcut
 }
 
 /** Resolves a static-or-lazy AppCommand field to its current value. */
@@ -127,6 +140,8 @@ export const commands: AppCommand[] = [
 	{ id: "go-sent", label: "Go to Sent", icon: SentIcon, shortcut: "g+s", group: "Navigation", run: () => setFolderRole("sent") },
 	{ id: "go-archive", label: "Go to Archive", icon: Archive02Icon, shortcut: "g+a", group: "Navigation", run: () => setFolderRole("archive") },
 	{ id: "go-trash", label: "Go to Trash", icon: Delete01Icon, shortcut: "g+t", group: "Navigation", run: () => setFolderRole("trash") },
+	{ id: "next-email", label: "Next email", icon: ArrowDown02Icon, shortcut: "j", group: "Navigation", run: () => selectNeighborMessage(1) },
+	{ id: "prev-email", label: "Previous email", icon: ArrowUp02Icon, shortcut: "k", group: "Navigation", run: () => selectNeighborMessage(-1) },
 
 	// App — functional.
 	{
@@ -169,6 +184,14 @@ export const commands: AppCommand[] = [
 	},
 	{ id: "settings", label: "Open settings", icon: Settings01Icon, shortcut: "mod+,", group: "App" },
 	{
+		id: "keyboard-shortcuts",
+		label: "Keyboard shortcuts",
+		icon: KeyboardIcon,
+		shortcut: "shift+/",
+		group: "App",
+		run: () => useUIStore.getState().setShortcutHelpOpen(true),
+	},
+	{
 		id: "quit-app",
 		label: "Quit Mailyard",
 		icon: Logout02Icon,
@@ -178,6 +201,21 @@ export const commands: AppCommand[] = [
 			await Application.Quit()
 		,
 	},
+
+	// Keyboard-only: mod+1..9 jumps to the Nth mailbox (the palette already
+	// lists real mailboxes, so these stay hidden).
+	...Array.from({ length: 9 }, (_, i): AppCommand => ({
+		id: `switch-account-${i + 1}`,
+		label: `Go to mailbox ${i + 1}`,
+		icon: InboxIcon,
+		shortcut: `mod+${i + 1}`,
+		group: "Navigation",
+		hidden: true,
+		run: () => {
+			const account = useAccountsStore.getState().accounts[i]
+			if (account) setAccountFilter(account.id)
+		},
+	})),
 ]
 
 export interface CommandGroup {
@@ -192,8 +230,10 @@ const GROUP_ORDER: CommandGroupHeading[] = [
 	"App",
 ]
 
-/** Registry grouped in palette display order. */
+/** Registry grouped in palette display order (hidden commands excluded). */
 export const commandGroups: CommandGroup[] = GROUP_ORDER.map((heading) => ({
 	heading,
-	commands: commands.filter((command) => command.group === heading),
+	commands: commands.filter(
+		(command) => command.group === heading && !command.hidden
+	),
 }))

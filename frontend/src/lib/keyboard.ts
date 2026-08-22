@@ -91,10 +91,69 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 	)
 }
 
+/** Non-modifier keys of a shortcut, in order. */
+export function shortcutKeys(shortcut: string): string[] {
+	return shortcut
+		.toLowerCase()
+		.split("+")
+		.filter((part) => !isModifier(part))
+}
+
 /**
- * Check a KeyboardEvent against a platform-neutral shortcut.
+ * True when the shortcut is a Gmail-style key sequence ("g+i" = press g,
+ * then i) rather than a chord. Anything with two or more plain keys.
+ */
+export function isSequenceShortcut(shortcut: string): boolean {
+	return shortcutKeys(shortcut).length > 1
+}
+
+/** Result of feeding one key into the sequence matcher. */
+export interface SequenceStep<T> {
+	/** The completed sequence's value, if this key finished one. */
+	match?: T
+	/** Keys still pending toward a longer sequence. */
+	pending: string[]
+}
+
+/**
+ * Advances Gmail-style key sequences: returns a match when the buffer ends a
+ * full sequence, or the surviving prefix when more keys could still complete
+ * one. Pure — the caller owns the buffer and its expiry timer.
+ */
+export function advanceSequence<T>(
+	pending: string[],
+	key: string,
+	sequences: { keys: string[]; value: T }[]
+): SequenceStep<T> {
+	const buffer = [...pending, key]
+
+	for (const sequence of sequences) {
+		const offset = buffer.length - sequence.keys.length
+		if (offset >= 0 && sequence.keys.every((k, i) => buffer[offset + i] === k)) {
+			return { match: sequence.value, pending: [] }
+		}
+	}
+
+	// Keep the longest tail that is still a strict prefix of some sequence.
+	for (let start = 0; start < buffer.length; start++) {
+		const tail = buffer.slice(start)
+		const isPrefix = sequences.some(
+			(sequence) =>
+				sequence.keys.length > tail.length &&
+				tail.every((k, i) => sequence.keys[i] === k)
+		)
+		if (isPrefix) {
+			return { pending: tail }
+		}
+	}
+	return { pending: [] }
+}
+
+/**
+ * Check a KeyboardEvent against a platform-neutral chord.
  * "mod" matches metaKey on macOS and ctrlKey on Windows/Linux; all other
  * modifier states must match exactly (so "mod+k" won't fire on mod+shift+k).
+ * Sequences ("g+i") never match here — they go through advanceSequence.
  *
  * matchesShortcut(event, "mod+k")
  */
@@ -102,6 +161,9 @@ export function matchesShortcut(
 	event: KeyboardEvent | React.KeyboardEvent,
 	shortcut: string
 ): boolean {
+	if (isSequenceShortcut(shortcut)) {
+		return false
+	}
 	const parts = shortcut.toLowerCase().split("+")
 	const key = parts.find((part) => !isModifier(part))
 	const mods = new Set(parts.filter(isModifier))

@@ -17,6 +17,7 @@ import { KbdShortcut } from "./ui/kbd";
 import { ThemeToggle } from "./theme-toggle";
 import { useWindowStore } from "@/stores/window";
 import { openCompose } from "@/stores/compose";
+import { shortcutFor } from "@/lib/command";
 import { cn } from "@/lib/utils";
 
 export function AppSidebar() {
@@ -72,7 +73,11 @@ export function AppSidebar() {
 					</SidebarMenuItem>
 					<SidebarMenuItem>
 						<SidebarMenuButton
-							tooltip={<KbdShortcut shortcut="alt+c">Compose</KbdShortcut>}
+							tooltip={
+								<KbdShortcut shortcut={shortcutFor("compose") ?? ""}>
+									Compose
+								</KbdShortcut>
+							}
 							size={"md"}
 							color="rose"
 							className="rounded-full"

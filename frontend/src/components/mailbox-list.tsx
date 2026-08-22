@@ -7,6 +7,7 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { shortcutFor } from "@/lib/command"
 import type { MailboxColor } from "@/lib/mailbox-colors"
 import { useAccountsStore } from "@/stores/accounts"
 import { setAccountFilter, useMailStore } from "@/stores/mail"
@@ -54,7 +55,11 @@ export function MailboxList() {
 			))}
 			<SidebarMenuItem>
 				<SidebarMenuButton
-					tooltip={<KbdShortcut shortcut="alt+shift+m">Add Mailbox</KbdShortcut>}
+					tooltip={
+						<KbdShortcut shortcut={shortcutFor("add-mailbox") ?? ""}>
+							Add Mailbox
+						</KbdShortcut>
+					}
 					variant="transparent"
 					size="default"
 					className="[&_svg]:size-5 rounded-lg"

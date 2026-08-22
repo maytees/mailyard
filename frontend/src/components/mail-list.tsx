@@ -29,6 +29,14 @@ export function MailList({ messages, activeId, onSelect }: MailListProps) {
 		return map;
 	}, [accounts]);
 
+	// Keep the active row visible during j/k navigation.
+	React.useEffect(() => {
+		if (activeId == null) return;
+		document
+			.querySelector(`[data-message-id="${activeId}"]`)
+			?.scrollIntoView({ block: "nearest" });
+	}, [activeId]);
+
 	// Infinite scroll: fetch the next page when the tail sentinel becomes
 	// visible, regardless of which element actually scrolls.
 	React.useEffect(() => {
@@ -87,6 +95,7 @@ const MailListItem = ({
 		<div
 			role="button"
 			tabIndex={0}
+			data-message-id={message.id}
 			onClick={onClick}
 			onKeyDown={(event) => {
 				if (event.key === "Enter" || event.key === " ") {

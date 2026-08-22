@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest"
 
 import {
+	advanceSequence,
 	formatShortcut,
 	isMac,
+	isSequenceShortcut,
 	matchesShortcut,
 	isEditableTarget,
 } from "@/lib/keyboard"
@@ -53,6 +55,53 @@ describe("matchesShortcut", () => {
 	it("does not fire bare keys when modifiers are held", () => {
 		expect(matchesShortcut(keyEvent("j", { altKey: true }), "j")).toBe(false)
 		expect(matchesShortcut(keyEvent("j"), "j")).toBe(true)
+	})
+})
+
+describe("sequences", () => {
+	const sequences = [
+		{ keys: ["g", "i"], value: "inbox" },
+		{ keys: ["g", "s"], value: "sent" },
+	]
+
+	it("classifies g+i as a sequence, mod+shift+s as a chord", () => {
+		expect(isSequenceShortcut("g+i")).toBe(true)
+		expect(isSequenceShortcut("mod+shift+s")).toBe(false) // one plain key
+		expect(isSequenceShortcut("e")).toBe(false)
+	})
+
+	it("never chord-matches a sequence on its first key", () => {
+		expect(matchesShortcut(keyEvent("g"), "g+i")).toBe(false)
+	})
+
+	it("completes a sequence across two keys", () => {
+		const first = advanceSequence([], "g", sequences)
+		expect(first.match).toBeUndefined()
+		expect(first.pending).toEqual(["g"])
+
+		const second = advanceSequence(first.pending, "i", sequences)
+		expect(second.match).toBe("inbox")
+		expect(second.pending).toEqual([])
+	})
+
+	it("distinguishes sequences sharing a prefix", () => {
+		const first = advanceSequence([], "g", sequences)
+		expect(advanceSequence(first.pending, "s", sequences).match).toBe("sent")
+	})
+
+	it("drops a dead-end buffer", () => {
+		const first = advanceSequence([], "g", sequences)
+		const dead = advanceSequence(first.pending, "x", sequences)
+		expect(dead.match).toBeUndefined()
+		expect(dead.pending).toEqual([])
+	})
+
+	it("recovers when a new prefix starts mid-buffer", () => {
+		// g, g → the trailing g still opens a sequence.
+		const first = advanceSequence([], "g", sequences)
+		const second = advanceSequence(first.pending, "g", sequences)
+		expect(second.pending).toEqual(["g"])
+		expect(advanceSequence(second.pending, "i", sequences).match).toBe("inbox")
 	})
 })
 
