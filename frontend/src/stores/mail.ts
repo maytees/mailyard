@@ -9,6 +9,11 @@ import type { Message } from "~/bindings/mailyard/internal/store/models"
 
 const PAGE_SIZE = 50
 
+export interface SyncState {
+	state: "syncing" | "idle" | "error"
+	error?: string
+}
+
 interface MailState {
 	messages: Message[]
 	activeMessageId: number | null
@@ -19,6 +24,8 @@ interface MailState {
 	folderRole: string
 	/** Per-account unread inbox counts (rail badges + header). */
 	unreadCounts: Record<string, number>
+	/** Per-account sync engine status (sidebar indicator). */
+	syncStatus: Record<string, SyncState>
 	loading: boolean
 	hasMore: boolean
 }
@@ -30,6 +37,7 @@ export const useMailStore = create<MailState>(() => ({
 	accountFilter: "",
 	folderRole: "inbox",
 	unreadCounts: {},
+	syncStatus: {},
 	loading: false,
 	hasMore: false,
 }))
@@ -167,6 +175,20 @@ let refreshTimer: ReturnType<typeof setTimeout> | null = null
 export async function initMailStore() {
 	if (initialized) return // idempotent
 	initialized = true
+
+	Events.On("sync:status", (event) => {
+		const data = (Array.isArray(event.data) ? event.data[0] : event.data) as {
+			accountId: string
+			state: SyncState["state"]
+			error?: string
+		}
+		useMailStore.setState((s) => ({
+			syncStatus: {
+				...s.syncStatus,
+				[data.accountId]: { state: data.state, error: data.error },
+			},
+		}))
+	})
 
 	// Sync events arrive in bursts (one per folder); trail-debounce the reload.
 	Events.On("mail:changed", () => {

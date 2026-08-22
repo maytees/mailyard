@@ -10,6 +10,8 @@ interface UIState {
 	/** Command palette visibility — in the store so commands can open it. */
 	paletteOpen: boolean
 	setPaletteOpen: (open: boolean) => void
+	settingsOpen: boolean
+	setSettingsOpen: (open: boolean) => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -19,4 +21,6 @@ export const useUIStore = create<UIState>((set) => ({
 	setShortcutHelpOpen: (open) => set({ shortcutHelpOpen: open }),
 	paletteOpen: false,
 	setPaletteOpen: (open) => set({ paletteOpen: open }),
+	settingsOpen: false,
+	setSettingsOpen: (open) => set({ settingsOpen: open }),
 }))

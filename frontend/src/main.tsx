@@ -9,6 +9,7 @@ import { AppSidebar } from "./components/app-sidebar.tsx"
 import { AddMailboxDialog } from "./components/add-mailbox-dialog.tsx"
 import { CommandPaletteProvider } from "./components/command-palette.tsx"
 import { ComposeSheet } from "./components/compose-sheet.tsx"
+import { SettingsDialog } from "./components/settings-dialog.tsx"
 import { ShortcutHelpDialog } from "./components/shortcut-help-dialog.tsx"
 import { SplashGate } from "./components/splash-screen.tsx"
 import { TranslateDialog } from "./components/translate-dialog.tsx"
@@ -35,6 +36,7 @@ createRoot(document.getElementById("root")!).render(
 						</main>
 						<AddMailboxDialog />
 						<ComposeSheet />
+						<SettingsDialog />
 						<ShortcutHelpDialog />
 						<TranslateDialog />
 						<UnsubscribeDialog />

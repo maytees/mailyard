@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/sidebar";
 // import MailyardIcon from "./MailyardIcon"
 import { MailboxList } from "./mailbox-list";
+import { SyncStatus } from "./sync-status";
 import { PencilIcon, TokenSquareIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { KbdShortcut } from "./ui/kbd";
@@ -61,7 +62,9 @@ export function AppSidebar() {
 			</SidebarContent>
 			<SidebarFooter className="mb-5">
 				<SidebarMenu className="gap-3">
-					<SidebarMenuItem></SidebarMenuItem>
+					<SidebarMenuItem>
+						<SyncStatus />
+					</SidebarMenuItem>
 					<SidebarMenuButton
 						tooltip={<KbdShortcut shortcut=".">AI</KbdShortcut>}
 						size="md"

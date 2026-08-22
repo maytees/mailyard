@@ -30,6 +30,8 @@ import { useSettingsStore } from "@/stores/settings"
 import { useThemeStore } from "@/stores/theme"
 import { useUIStore } from "@/stores/ui"
 import * as SyncService from "~/bindings/mailyard/syncservice"
+import * as TransferService from "~/bindings/mailyard/transferservice"
+import { toast } from "sonner"
 
 /** The message the list currently has selected, if any. */
 function activeMessage() {
@@ -48,6 +50,8 @@ import {
 	CheckListIcon,
 	Delete01Icon,
 	Delete02Icon,
+	FileExportIcon,
+	FileImportIcon,
 	FilterMailRemoveIcon,
 	Flag02Icon,
 	ForwardIcon,
@@ -217,7 +221,47 @@ export const commands: AppCommand[] = [
 		group: "App",
 		run: () => useUIStore.getState().setAddMailboxOpen(true),
 	},
-	{ id: "settings", label: "Open settings", icon: Settings01Icon, shortcut: "mod+,", group: "App" },
+	{
+		id: "settings",
+		label: "Open settings",
+		icon: Settings01Icon,
+		shortcut: "mod+,",
+		group: "App",
+		run: () => useUIStore.getState().setSettingsOpen(true),
+	},
+	{
+		id: "export-data",
+		label: "Export data",
+		icon: FileExportIcon,
+		group: "App",
+		run: () => {
+			TransferService.Export()
+				.then((path) => {
+					if (path) toast.success(`Exported to ${path}`)
+				})
+				.catch((error: unknown) =>
+					toast.error(error instanceof Error ? error.message : String(error))
+				)
+		},
+	},
+	{
+		id: "import-data",
+		label: "Import data",
+		icon: FileImportIcon,
+		group: "App",
+		run: () => {
+			TransferService.Import()
+				.then(async (path) => {
+					if (path) {
+						await Promise.all([refreshMailList(), refreshUnreadCounts()])
+						toast.success("Import complete")
+					}
+				})
+				.catch((error: unknown) =>
+					toast.error(error instanceof Error ? error.message : String(error))
+				)
+		},
+	},
 	{
 		id: "keyboard-shortcuts",
 		label: "Keyboard shortcuts",
