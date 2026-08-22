@@ -191,7 +191,9 @@ export function ComposeSheet() {
 					)}
 				</div>
 
-				<div className="flex flex-row items-center justify-between border-t px-5 py-3">
+				{/* flex-wrap: with the rewrite tones visible this row is wider than
+				    the sheet, and Send must never clip. */}
+				<div className="flex flex-row flex-wrap items-center justify-between gap-y-2 border-t px-5 py-3">
 					<div className="flex flex-row items-center gap-1">
 						<Button
 							variant="ghost"

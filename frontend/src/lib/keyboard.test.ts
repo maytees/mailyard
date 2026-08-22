@@ -56,6 +56,17 @@ describe("matchesShortcut", () => {
 		expect(matchesShortcut(keyEvent("j", { altKey: true }), "j")).toBe(false)
 		expect(matchesShortcut(keyEvent("j"), "j")).toBe(true)
 	})
+
+	it("matches alt chords despite macOS Option composing the character", () => {
+		// Option+C reports key "ç" — the physical key survives in code.
+		const composed = new KeyboardEvent("keydown", {
+			key: "ç",
+			code: "KeyC",
+			altKey: true,
+		})
+		expect(matchesShortcut(composed, "alt+c")).toBe(true)
+		expect(matchesShortcut(composed, "alt+m")).toBe(false)
+	})
 })
 
 describe("sequences", () => {

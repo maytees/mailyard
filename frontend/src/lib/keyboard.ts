@@ -172,8 +172,19 @@ export function matchesShortcut(
 	const wantsCtrl = mods.has("ctrl") || (wantsMod && !isMac)
 	const wantsMeta = mods.has("meta") || (wantsMod && isMac)
 
+	// On macOS, Option composes characters (alt+c → "ç", alt+shift+m → "Â"),
+	// so event.key never matches the letter. The physical key survives in
+	// event.code ("KeyC"/"Digit3") — accept either.
+	const pressed = [event.key.toLowerCase()]
+	const code = event.code ?? ""
+	if (code.startsWith("Key")) {
+		pressed.push(code.slice(3).toLowerCase())
+	} else if (code.startsWith("Digit")) {
+		pressed.push(code.slice(5))
+	}
+
 	return (
-		(key === undefined || event.key.toLowerCase() === key) &&
+		(key === undefined || pressed.includes(key)) &&
 		event.ctrlKey === wantsCtrl &&
 		event.metaKey === wantsMeta &&
 		event.altKey === mods.has("alt") &&
