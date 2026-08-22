@@ -11,6 +11,7 @@ import {
 	SparklesIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
+import { motion } from "motion/react";
 import * as React from "react";
 
 import { AIPanel } from "@/components/ai-panel";
@@ -62,7 +63,8 @@ export function MailView() {
 		);
 	}
 
-	// Keyed by thread so expand/collapse state resets when switching.
+	// Keyed by thread so expand/collapse state resets when switching — the
+	// remount also replays the subtle entrance transition.
 	return (
 		<MailThread
 			key={`${message.accountId}:${message.threadId}`}
@@ -111,7 +113,12 @@ function MailThread({ message }: { message: Message }) {
 		});
 
 	return (
-		<section className="flex h-svh flex-1 min-w-0 flex-col">
+		<motion.section
+			initial={{ opacity: 0, y: 6 }}
+			animate={{ opacity: 1, y: 0 }}
+			transition={{ duration: 0.18, ease: "easeOut" }}
+			className="flex h-svh flex-1 min-w-0 flex-col"
+		>
 			<header className="flex shrink-0 flex-row items-start justify-between gap-4 border-b px-6 pt-5 pb-4">
 				<div className="flex min-w-0 flex-col gap-1.5">
 					<h1 className="truncate font-heading text-xl font-semibold">
@@ -175,7 +182,7 @@ function MailThread({ message }: { message: Message }) {
 					/>
 				))}
 			</ScrollArea>
-		</section>
+		</motion.section>
 	);
 }
 
