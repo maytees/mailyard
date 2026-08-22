@@ -76,7 +76,12 @@ export async function loadMoreMessages() {
 }
 
 export async function refreshUnreadCounts() {
-	const counts = (await MailService.UnreadCounts()) ?? {}
+	// The generated map type has optional values; normalize to a dense record.
+	const raw = (await MailService.UnreadCounts()) ?? {}
+	const counts: Record<string, number> = {}
+	for (const [accountId, count] of Object.entries(raw)) {
+		if (typeof count === "number") counts[accountId] = count
+	}
 	useMailStore.setState({ unreadCounts: counts })
 }
 
