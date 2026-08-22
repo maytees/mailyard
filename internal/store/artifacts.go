@@ -9,10 +9,11 @@ import (
 )
 
 // Artifact kinds. ref_id is a thread id or a message id depending on kind.
-// thread-summary is versioned: v2 invalidated caches written before the
-// prompt was hardened against markdown-essay output from local models.
+// thread-summary is versioned: bumped whenever summary generation changes
+// shape, so stale caches (e.g. the markdown essays local models used to
+// produce) regenerate instead of replaying.
 const (
-	ArtifactThreadSummary  = "thread-summary-v2"
+	ArtifactThreadSummary  = "thread-summary-v3"
 	ArtifactMessageSummary = "msg-summary"
 	ArtifactTriage         = "triage"
 )

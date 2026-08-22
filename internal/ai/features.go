@@ -12,11 +12,19 @@ import (
 	"mailyard/internal/store"
 )
 
-// SummarizeThread streams a summary (cache-first) and caches the result.
+type summaryOutput struct {
+	// The json schema description constrains the model far harder than prose
+	// system prompts — local models ignore those on long inputs.
+	Summary string `json:"summary" jsonschema_description:"1 to 3 plain sentences, 60 words maximum, no markdown of any kind"`
+}
+
+// SummarizeThread produces a short plain-text summary (cache-first) and
+// replays it over the streaming channel so the UI has one code path.
+// Generation is structured (JSON-constrained) rather than free-streamed:
+// small local models decorate free text with markdown no matter what the
+// prompt says, and the output is sanitized + word-capped as a final guard.
 func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID string) (string, error) {
 	if cached, err := s.Store.ArtifactGet(ctx, store.ArtifactThreadSummary, threadID); err == nil && cached != "" {
-		// Replay the cache through the same streaming channel so the UI has
-		// one code path.
 		requestID := newRequestID()
 		go func() {
 			s.emit(StreamChunk{RequestID: requestID, Chunk: cached})
@@ -29,22 +37,42 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 	if err != nil {
 		return "", err
 	}
-	config, _ := s.Config(ctx)
-	return s.streamRequest(
-		"Summarize the email thread in 1-3 plain sentences, 60 words maximum. "+
-			"Output ONLY those sentences — no headings, no bullet points, no bold, "+
-			"no links, no horizontal rules, no preamble like \"Here's a summary\", "+
-			"and no closing commentary. Write like a terse human assistant: who "+
-			"wants what, what was decided, what happens next.",
-		text,
-		200,
-		func(full string) {
-			if err := s.Store.ArtifactSet(context.Background(),
-				store.ArtifactThreadSummary, threadID, full, config.Model); err != nil {
-				log.Printf("cache summary: %v", err)
-			}
-		},
-	)
+	model, modelName, err := s.model(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	requestID := newRequestID()
+	go func() {
+		background := context.Background()
+		result, err := goai.GenerateObject[summaryOutput](background, model,
+			goai.WithSystem("Summarize the email thread for its owner: who wants "+
+				"what, what was decided, what happens next. 1-3 plain sentences, "+
+				"60 words maximum. Plain text only — never markdown, headings, "+
+				"bullets, links, or preamble."),
+			goai.WithPrompt(text),
+			goai.WithMaxOutputTokens(400),
+			// Ollama: skip qwen-style thinking; it slows short summaries down.
+			goai.WithProviderOptions(map[string]any{"think": false}),
+		)
+		if err != nil {
+			s.emit(StreamChunk{RequestID: requestID, Done: true, Error: err.Error()})
+			return
+		}
+		summary := SanitizeSummary(result.Object.Summary, 70)
+		if summary == "" {
+			s.emit(StreamChunk{RequestID: requestID, Done: true,
+				Error: "the model returned an empty summary — try again"})
+			return
+		}
+		if err := s.Store.ArtifactSet(background,
+			store.ArtifactThreadSummary, threadID, summary, modelName); err != nil {
+			log.Printf("cache summary: %v", err)
+		}
+		s.emit(StreamChunk{RequestID: requestID, Chunk: summary})
+		s.emit(StreamChunk{RequestID: requestID, Done: true})
+	}()
+	return requestID, nil
 }
 
 // DraftReply streams a reply written in the user's voice.

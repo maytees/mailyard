@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -145,6 +146,38 @@ func TestSummarizeReplaysCache(t *testing.T) {
 	}
 	if !recorder.chunks[1].Done || recorder.chunks[1].Error != "" {
 		t.Fatalf("bad done chunk: %+v", recorder.chunks[1])
+	}
+}
+
+func TestSanitizeSummary(t *testing.T) {
+	messy := "Here's a **clean and concise summary** of the thread:\n\n" +
+		"---\n\n### **Summary:**\n\n" +
+		"**Jamie** shared [7.24 Revisions](https://example.com/doc) with the team.\n\n" +
+		"1. **Document Shared:** home and service pages\n" +
+		"- Team bios due tomorrow\n\n---\n"
+	got := SanitizeSummary(messy, 70)
+
+	for _, banned := range []string{"**", "#", "---", "](", "\n"} {
+		if strings.Contains(got, banned) {
+			t.Fatalf("markdown survived (%q): %q", banned, got)
+		}
+	}
+	if !strings.Contains(got, "Jamie shared 7.24 Revisions") {
+		t.Fatalf("content lost: %q", got)
+	}
+	if strings.HasPrefix(got, "Here's") {
+		t.Fatalf("preamble survived: %q", got)
+	}
+
+	// Word cap.
+	long := strings.Repeat("word ", 100)
+	if capped := SanitizeSummary(long, 10); len(strings.Fields(capped)) > 11 {
+		t.Fatalf("cap failed: %q", capped)
+	}
+	// Clean text passes through untouched.
+	clean := "Jamie shared the revisions; bios follow tomorrow."
+	if got := SanitizeSummary(clean, 70); got != clean {
+		t.Fatalf("clean text mangled: %q", got)
 	}
 }
 
