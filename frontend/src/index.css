@@ -116,26 +116,31 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+}
 
-  /* Mailbox accent palette — Tailwind 500s, for coloring mailboxes/accounts.
-       Usable as utilities (bg-mailbox-violet) or at runtime via var(--color-violet-500). */
-  --color-mailbox-red: var(--color-red-500);
-  --color-mailbox-orange: var(--color-orange-500);
-  --color-mailbox-amber: var(--color-amber-500);
-  --color-mailbox-yellow: var(--color-yellow-500);
-  --color-mailbox-lime: var(--color-lime-500);
-  --color-mailbox-green: var(--color-green-500);
-  --color-mailbox-emerald: var(--color-emerald-500);
-  --color-mailbox-teal: var(--color-teal-500);
-  --color-mailbox-cyan: var(--color-cyan-500);
-  --color-mailbox-sky: var(--color-sky-500);
-  --color-mailbox-blue: var(--color-blue-500);
-  --color-mailbox-indigo: var(--color-indigo-500);
-  --color-mailbox-violet: var(--color-violet-500);
-  --color-mailbox-purple: var(--color-purple-500);
-  --color-mailbox-fuchsia: var(--color-fuchsia-500);
-  --color-mailbox-pink: var(--color-pink-500);
-  --color-mailbox-rose: var(--color-rose-500);
+/* Mailbox accent palette — Tailwind 500s, for coloring mailboxes/accounts.
+   Deliberately NOT in the inline theme block: `@theme inline` never emits
+   variables to :root, and this palette is consumed at runtime via
+   var(--color-mailbox-*) (swatches, list borders, palette dots). Literal
+   values so nothing depends on Tailwind emitting its own palette. */
+@theme {
+  --color-mailbox-red: oklch(0.637 0.237 25.331);
+  --color-mailbox-orange: oklch(0.705 0.213 47.604);
+  --color-mailbox-amber: oklch(0.769 0.188 70.08);
+  --color-mailbox-yellow: oklch(0.795 0.184 86.047);
+  --color-mailbox-lime: oklch(0.768 0.233 130.85);
+  --color-mailbox-green: oklch(0.723 0.219 149.579);
+  --color-mailbox-emerald: oklch(0.696 0.17 162.48);
+  --color-mailbox-teal: oklch(0.704 0.14 182.503);
+  --color-mailbox-cyan: oklch(0.715 0.143 215.221);
+  --color-mailbox-sky: oklch(0.685 0.169 237.323);
+  --color-mailbox-blue: oklch(0.623 0.214 259.815);
+  --color-mailbox-indigo: oklch(0.585 0.233 277.117);
+  --color-mailbox-violet: oklch(0.606 0.25 292.717);
+  --color-mailbox-purple: oklch(0.627 0.265 303.9);
+  --color-mailbox-fuchsia: oklch(0.667 0.29 322.15);
+  --color-mailbox-pink: oklch(0.656 0.241 354.308);
+  --color-mailbox-rose: oklch(0.645 0.246 16.439);
 }
 
 @layer base {
