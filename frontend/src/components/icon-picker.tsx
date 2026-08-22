@@ -95,8 +95,8 @@ export function IconPicker({
 						No icons match “{query.trim()}”
 					</p>
 				) : (
-					{/* p-1 keeps edge items' hover/ring from clipping on the
-					    overflow boundary. */}
+					// p-1 keeps edge items' hover/ring from clipping on the
+					// overflow boundary.
 					<div className="grid max-h-56 grid-cols-7 gap-0.5 overflow-y-auto p-1">
 						<button
 							type="button"
