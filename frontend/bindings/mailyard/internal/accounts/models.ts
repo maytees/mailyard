@@ -9,6 +9,7 @@ export interface AddInput {
     "displayName": string;
     "email": string;
     "color": string;
+    "icon": string;
     "imapHost": string;
     "imapPort": number;
     "smtpHost": string;
@@ -25,5 +26,6 @@ export interface UpdateInput {
     "id": string;
     "displayName": string;
     "color": string;
+    "icon": string;
     "password": string;
 }

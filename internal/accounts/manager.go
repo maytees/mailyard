@@ -30,6 +30,7 @@ type AddInput struct {
 	DisplayName string `json:"displayName"`
 	Email       string `json:"email"`
 	Color       string `json:"color"`
+	Icon        string `json:"icon"`
 	IMAPHost    string `json:"imapHost"`
 	IMAPPort    int    `json:"imapPort"`
 	SMTPHost    string `json:"smtpHost"`
@@ -44,6 +45,7 @@ type UpdateInput struct {
 	ID          string `json:"id"`
 	DisplayName string `json:"displayName"`
 	Color       string `json:"color"`
+	Icon        string `json:"icon"`
 	Password    string `json:"password"`
 }
 
@@ -87,6 +89,7 @@ func (m *Manager) Add(ctx context.Context, in AddInput) (store.Account, error) {
 		Email:       in.Email,
 		DisplayName: in.DisplayName,
 		Color:       in.Color,
+		Icon:        in.Icon,
 		IMAPHost:    in.IMAPHost,
 		IMAPPort:    in.IMAPPort,
 		SMTPHost:    in.SMTPHost,
@@ -121,6 +124,9 @@ func (m *Manager) Update(ctx context.Context, in UpdateInput) (store.Account, er
 	}
 	if in.Color != "" {
 		account.Color = in.Color
+	}
+	if in.Icon != "" {
+		account.Icon = in.Icon
 	}
 	if in.Password != "" {
 		verifyCtx, cancel := context.WithTimeout(ctx, 20*time.Second)

@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { IconPicker } from "@/components/icon-picker"
 import { Button } from "@/components/ui/button"
 import {
 	Dialog,
@@ -40,6 +41,7 @@ export function AddMailboxDialog() {
 	const [email, setEmail] = React.useState("")
 	const [password, setPassword] = React.useState("")
 	const [color, setColor] = React.useState<MailboxColor>("violet")
+	const [icon, setIcon] = React.useState("")
 	const [imapHost, setImapHost] = React.useState(providers[0].imapHost)
 	const [imapPort, setImapPort] = React.useState(String(providers[0].imapPort))
 	const [smtpHost, setSmtpHost] = React.useState(providers[0].smtpHost)
@@ -72,6 +74,7 @@ export function AddMailboxDialog() {
 				displayName,
 				email,
 				color,
+				icon,
 				imapHost,
 				imapPort: Number(imapPort) || 0,
 				smtpHost,
@@ -84,6 +87,7 @@ export function AddMailboxDialog() {
 			setDisplayName("")
 			setEmail("")
 			setPassword("")
+			setIcon("")
 		} catch (raw: unknown) {
 			setError(raw instanceof Error ? raw.message : String(raw))
 		} finally {
@@ -148,13 +152,21 @@ export function AddMailboxDialog() {
 						</Field>
 					</div>
 
-					<Field label="Name (optional)">
-						<Input
-							value={displayName}
-							onChange={(e) => setDisplayName(e.target.value)}
-							placeholder="Personal"
-						/>
-					</Field>
+					<div className="grid grid-cols-[1fr_auto] items-end gap-3">
+						<Field label="Name (optional)">
+							<Input
+								value={displayName}
+								onChange={(e) => setDisplayName(e.target.value)}
+								placeholder="Personal"
+							/>
+						</Field>
+						<div className="flex flex-col gap-1.5">
+							<span className="text-xs font-medium text-muted-foreground">
+								Icon
+							</span>
+							<IconPicker value={icon} onChange={setIcon} />
+						</div>
+					</div>
 
 					{provider.id === "custom" && (
 						<div className="grid grid-cols-[1fr_5rem_1fr_5rem] gap-2">

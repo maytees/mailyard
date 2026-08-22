@@ -16,13 +16,15 @@ type Account struct {
 	Email       string `json:"email"`
 	DisplayName string `json:"displayName"`
 	Color       string `json:"color"`
-	IMAPHost    string `json:"imapHost"`
-	IMAPPort    int    `json:"imapPort"`
-	SMTPHost    string `json:"smtpHost"`
-	SMTPPort    int    `json:"smtpPort"`
-	Username    string `json:"username"`
-	AuthKind    string `json:"authKind"`
-	CreatedAt   int64  `json:"createdAt"`
+	// Icon is a hugeicons export name ("" = show the initial letter).
+	Icon      string `json:"icon"`
+	IMAPHost  string `json:"imapHost"`
+	IMAPPort  int    `json:"imapPort"`
+	SMTPHost  string `json:"smtpHost"`
+	SMTPPort  int    `json:"smtpPort"`
+	Username  string `json:"username"`
+	AuthKind  string `json:"authKind"`
+	CreatedAt int64  `json:"createdAt"`
 }
 
 type Folder struct {

@@ -10,27 +10,28 @@ import (
 func (s *Store) UpsertAccount(ctx context.Context, a Account) error {
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO accounts
-			(id, email, display_name, color, imap_host, imap_port,
+			(id, email, display_name, color, icon, imap_host, imap_port,
 			 smtp_host, smtp_port, username, auth_kind, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			email = excluded.email,
 			display_name = excluded.display_name,
 			color = excluded.color,
+			icon = excluded.icon,
 			imap_host = excluded.imap_host,
 			imap_port = excluded.imap_port,
 			smtp_host = excluded.smtp_host,
 			smtp_port = excluded.smtp_port,
 			username = excluded.username,
 			auth_kind = excluded.auth_kind`,
-		a.ID, a.Email, a.DisplayName, a.Color, a.IMAPHost, a.IMAPPort,
+		a.ID, a.Email, a.DisplayName, a.Color, a.Icon, a.IMAPHost, a.IMAPPort,
 		a.SMTPHost, a.SMTPPort, a.Username, a.AuthKind, a.CreatedAt)
 	return err
 }
 
 func (s *Store) ListAccounts(ctx context.Context) ([]Account, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, email, display_name, color, imap_host, imap_port,
+		SELECT id, email, display_name, color, icon, imap_host, imap_port,
 		       smtp_host, smtp_port, username, auth_kind, created_at
 		FROM accounts ORDER BY created_at, id`)
 	if err != nil {
@@ -41,7 +42,7 @@ func (s *Store) ListAccounts(ctx context.Context) ([]Account, error) {
 	accounts := []Account{}
 	for rows.Next() {
 		var a Account
-		if err := rows.Scan(&a.ID, &a.Email, &a.DisplayName, &a.Color,
+		if err := rows.Scan(&a.ID, &a.Email, &a.DisplayName, &a.Color, &a.Icon,
 			&a.IMAPHost, &a.IMAPPort, &a.SMTPHost, &a.SMTPPort,
 			&a.Username, &a.AuthKind, &a.CreatedAt); err != nil {
 			return nil, err
@@ -54,10 +55,10 @@ func (s *Store) ListAccounts(ctx context.Context) ([]Account, error) {
 func (s *Store) GetAccount(ctx context.Context, id string) (Account, error) {
 	var a Account
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, email, display_name, color, imap_host, imap_port,
+		SELECT id, email, display_name, color, icon, imap_host, imap_port,
 		       smtp_host, smtp_port, username, auth_kind, created_at
 		FROM accounts WHERE id = ?`, id).
-		Scan(&a.ID, &a.Email, &a.DisplayName, &a.Color,
+		Scan(&a.ID, &a.Email, &a.DisplayName, &a.Color, &a.Icon,
 			&a.IMAPHost, &a.IMAPPort, &a.SMTPHost, &a.SMTPPort,
 			&a.Username, &a.AuthKind, &a.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {

@@ -6,6 +6,11 @@ export interface Account {
     "email": string;
     "displayName": string;
     "color": string;
+
+    /**
+     * Icon is a hugeicons export name ("" = show the initial letter).
+     */
+    "icon": string;
     "imapHost": string;
     "imapPort": number;
     "smtpHost": string;

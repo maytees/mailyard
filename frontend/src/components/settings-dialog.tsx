@@ -102,6 +102,7 @@ function AccountRow({ account }: { account: Account }) {
 				id: account.id,
 				displayName: "",
 				color: "",
+				icon: "",
 				password,
 			})
 			toast.success(`Password updated for ${account.email}`)
