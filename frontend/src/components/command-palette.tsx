@@ -4,6 +4,7 @@ import { useHotkeys } from "react-hotkeys-hook"
 
 import { CommandPaletteContext } from "@/hooks/use-command-palette"
 import { useAccountsStore } from "@/stores/accounts"
+import { useAIStore } from "@/stores/ai"
 import { openMessage, setAccountFilter } from "@/stores/mail"
 import { useUIStore } from "@/stores/ui"
 import * as SearchService from "~/bindings/mailyard/searchservice"
@@ -109,6 +110,7 @@ function CommandPalette({
 	const [query, setQuery] = React.useState("")
 	const accounts = useAccountsStore((s) => s.accounts)
 	const emailMatches = useMailSearch(query)
+	const aiSummaries = useAIStore((s) => s.summaries)
 
 	const accountColor = React.useMemo(() => {
 		const map: Record<string, string> = {}
@@ -215,31 +217,46 @@ function CommandPalette({
 						<>
 							<CommandSeparator />
 							<CommandGroup heading="Mail">
-								{emailMatches.map((email) => (
-									<CommandItem
-										key={email.id}
-										// FTS matches on the body too, which cmdk's fuzzy filter
-										// can't see — append the query so hits always survive it.
-										value={`${email.from.name} ${email.subject} ${query}`}
-										onSelect={() => run(() => openMessage(email))}
-									>
-										<MailboxDot
-											color={accountColor[email.accountId] ?? "violet"}
-										/>
-										<span className="shrink-0">
-											<Highlight
-												text={email.from.name || email.from.email}
-												query={query}
+								{emailMatches.map((email) => {
+									// The AI digest (when generated) beats the raw opening
+									// line at telling similar mails apart.
+									const preview =
+										aiSummaries[String(email.id)] ?? email.snippet
+									return (
+										<CommandItem
+											key={email.id}
+											// FTS matches on the body too, which cmdk's fuzzy filter
+											// can't see — append the query so hits always survive it.
+											value={`${email.from.name} ${email.subject} ${query}`}
+											onSelect={() => run(() => openMessage(email))}
+										>
+											<MailboxDot
+												color={accountColor[email.accountId] ?? "violet"}
 											/>
-										</span>
-										<span className="truncate font-normal text-muted-foreground">
-											<Highlight
-												text={email.subject || "(no subject)"}
-												query={query}
-											/>
-										</span>
-									</CommandItem>
-								))}
+											<div className="flex min-w-0 flex-col">
+												<div className="flex min-w-0 flex-row items-baseline gap-2">
+													<span className="shrink-0">
+														<Highlight
+															text={email.from.name || email.from.email}
+															query={query}
+														/>
+													</span>
+													<span className="truncate font-normal text-muted-foreground">
+														<Highlight
+															text={email.subject || "(no subject)"}
+															query={query}
+														/>
+													</span>
+												</div>
+												{preview && (
+													<span className="truncate text-xs font-normal text-muted-foreground/70">
+														{preview}
+													</span>
+												)}
+											</div>
+										</CommandItem>
+									)
+								})}
 							</CommandGroup>
 						</>
 					)}

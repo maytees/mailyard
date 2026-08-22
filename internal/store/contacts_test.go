@@ -5,6 +5,40 @@ import (
 	"testing"
 )
 
+func TestSearchAndThreadDedupeGmailAllMailCopies(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	a := testAccount(t, s, "acc1")
+	inbox := testFolder(t, s, a.ID, "INBOX", RoleInbox)
+	allMail := testFolder(t, s, a.ID, "[Gmail]/All Mail", RoleArchive)
+
+	// The same message lands in both folders (distinct rows, same Message-ID).
+	for _, folder := range []int64{inbox, allMail} {
+		if _, _, err := s.UpsertMessage(ctx, Message{
+			AccountID: a.ID, FolderID: folder, UID: 1, MessageID: "<dup@x>",
+			Subject: "Quarterly report", From: Address{Email: "ann@x"}, Date: 100,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	hits, err := s.Search(ctx, "quarterly", "", 10)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(hits) != 1 {
+		t.Fatalf("all-mail copy doubled search: %d hits", len(hits))
+	}
+
+	thread, err := s.GetThread(ctx, a.ID, hits[0].ThreadID)
+	if err != nil {
+		t.Fatalf("thread: %v", err)
+	}
+	if len(thread) != 1 {
+		t.Fatalf("all-mail copy doubled thread: %d entries", len(thread))
+	}
+}
+
 func TestReorderAccounts(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()

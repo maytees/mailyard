@@ -264,11 +264,17 @@ func (s *Store) UnreadIDs(ctx context.Context, f ListFilter) ([]int64, error) {
 }
 
 // GetThread returns every message in a thread, oldest first (reading order).
+// Deduplicated by Message-ID — Gmail's All Mail copy would otherwise repeat
+// each entry.
 func (s *Store) GetThread(ctx context.Context, accountID, threadID string) ([]Message, error) {
-	return s.queryMessages(ctx, `
+	messages, err := s.queryMessages(ctx, `
 		SELECT `+messageColumns+` FROM messages m
 		WHERE m.account_id = ? AND m.thread_id = ?
 		ORDER BY m.date ASC, m.id ASC`, accountID, threadID)
+	if err != nil {
+		return nil, err
+	}
+	return dedupeByMessageID(messages), nil
 }
 
 func (s *Store) queryMessages(ctx context.Context, query string, args ...any) ([]Message, error) {
