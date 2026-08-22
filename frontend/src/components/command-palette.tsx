@@ -5,6 +5,7 @@ import { useHotkeys } from "react-hotkeys-hook"
 import { CommandPaletteContext } from "@/hooks/use-command-palette"
 import { useAccountsStore } from "@/stores/accounts"
 import { openMessage, setAccountFilter } from "@/stores/mail"
+import { useUIStore } from "@/stores/ui"
 import * as SearchService from "~/bindings/mailyard/searchservice"
 import type { Message } from "~/bindings/mailyard/internal/store/models"
 import {
@@ -78,14 +79,17 @@ export function CommandPaletteProvider({
 }: {
 	children: React.ReactNode
 }) {
-	const [open, setOpen] = React.useState(false)
+	// Open state lives in the ui store so registry commands (e.g. the AI
+	// sidebar button's ".") can open the palette from outside React.
+	const open = useUIStore((s) => s.paletteOpen)
+	const setOpen = useUIStore((s) => s.setPaletteOpen)
 
-	useHotkeys("mod+k", () => setOpen((current) => !current), {
+	useHotkeys("mod+k", () => setOpen(!useUIStore.getState().paletteOpen), {
 		preventDefault: true,
 		enableOnFormTags: true,
 	})
 
-	const value = React.useMemo(() => ({ open, setOpen }), [open])
+	const value = React.useMemo(() => ({ open, setOpen }), [open, setOpen])
 
 	return (
 		<CommandPaletteContext.Provider value={value}>

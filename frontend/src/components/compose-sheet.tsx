@@ -1,6 +1,7 @@
 import {
 	Attachment01Icon,
 	Cancel01Icon,
+	MagicWandIcon,
 	SentIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -19,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { formatBytes } from "@/lib/format"
 import { matchesShortcut } from "@/lib/keyboard"
 import { useAccountsStore } from "@/stores/accounts"
+import { rewriteComposeBody } from "@/stores/ai"
 import {
 	closeCompose,
 	pickComposeAttachments,
@@ -190,14 +192,35 @@ export function ComposeSheet() {
 				</div>
 
 				<div className="flex flex-row items-center justify-between border-t px-5 py-3">
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						aria-label="Attach files"
-						onClick={() => void pickComposeAttachments()}
-					>
-						<HugeiconsIcon icon={Attachment01Icon} />
-					</Button>
+					<div className="flex flex-row items-center gap-1">
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							aria-label="Attach files"
+							onClick={() => void pickComposeAttachments()}
+						>
+							<HugeiconsIcon icon={Attachment01Icon} />
+						</Button>
+						{state.body.trim() && (
+							<div className="ml-1 flex flex-row items-center gap-1">
+								<HugeiconsIcon
+									icon={MagicWandIcon}
+									className="size-3.5 text-muted-foreground"
+								/>
+								{(["concise", "friendly", "formal"] as const).map((tone) => (
+									<Button
+										key={tone}
+										variant="ghost"
+										size="xs"
+										className="h-6 rounded-full px-2 text-xs text-muted-foreground"
+										onClick={() => void rewriteComposeBody(tone)}
+									>
+										{tone}
+									</Button>
+								))}
+							</div>
+						)}
+					</div>
 					<div className="flex flex-row items-center gap-2.5">
 						<KbdShortcut shortcut="mod+enter" />
 						<Button

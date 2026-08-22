@@ -8,6 +8,15 @@ import {
 	trashActive,
 } from "@/lib/mail-actions"
 import { useAccountsStore } from "@/stores/accounts"
+import {
+	draftReplyWithAI,
+	extractActionItems,
+	rewriteComposeBody,
+	setTranslateOpen,
+	suggestUnsubscribes,
+	summarizeThread,
+	triageInbox,
+} from "@/stores/ai"
 import { composeFromMessage, openCompose } from "@/stores/compose"
 import {
 	refreshMailList,
@@ -93,14 +102,40 @@ export function resolveCommandField<T>(value: T | (() => T)): T {
 }
 
 export const commands: AppCommand[] = [
-	// AI — dummies until the backend exists.
-	{ id: "ai-summarize", label: "Summarize thread", icon: SparklesIcon, shortcut: "mod+shift+s", group: "AI" },
-	{ id: "ai-draft-reply", label: "Draft reply with AI", icon: AiEditingIcon, shortcut: "mod+shift+r", group: "AI" },
-	{ id: "ai-rewrite", label: "Rewrite draft", icon: MagicWandIcon, group: "AI" },
-	{ id: "ai-translate", label: "Translate email", icon: TranslateIcon, group: "AI" },
-	{ id: "ai-action-items", label: "Extract action items", icon: CheckListIcon, group: "AI" },
-	{ id: "ai-triage", label: "Smart triage inbox", icon: AiBrain01Icon, group: "AI" },
-	{ id: "ai-unsubscribe", label: "Suggest unsubscribes", icon: FilterMailRemoveIcon, group: "AI" },
+	// AI.
+	{
+		id: "ai-summarize", label: "Summarize thread", icon: SparklesIcon, shortcut: "mod+shift+s", group: "AI",
+		run: () => {
+			const message = activeMessage()
+			if (message) summarizeThread(message)
+		},
+	},
+	{
+		id: "ai-draft-reply", label: "Draft reply with AI", icon: AiEditingIcon, shortcut: "mod+shift+r", group: "AI",
+		run: () => {
+			const message = activeMessage()
+			if (message) void draftReplyWithAI(message)
+		},
+	},
+	{
+		id: "ai-rewrite", label: "Rewrite draft (concise)", icon: MagicWandIcon, group: "AI",
+		run: () => void rewriteComposeBody("concise"),
+	},
+	{
+		id: "ai-translate", label: "Translate email", icon: TranslateIcon, group: "AI",
+		run: () => {
+			if (activeMessage()) setTranslateOpen(true)
+		},
+	},
+	{
+		id: "ai-action-items", label: "Extract action items", icon: CheckListIcon, group: "AI",
+		run: () => {
+			const message = activeMessage()
+			if (message) void extractActionItems(message)
+		},
+	},
+	{ id: "ai-triage", label: "Smart triage inbox", icon: AiBrain01Icon, group: "AI", run: () => void triageInbox() },
+	{ id: "ai-unsubscribe", label: "Suggest unsubscribes", icon: FilterMailRemoveIcon, group: "AI", run: () => void suggestUnsubscribes() },
 
 	// Mail actions.
 	{ id: "compose", label: "Compose", icon: PencilIcon, shortcut: "alt+c", group: "Mail actions", run: () => openCompose() },
@@ -200,6 +235,18 @@ export const commands: AppCommand[] = [
 		run: async () =>
 			await Application.Quit()
 		,
+	},
+
+	// Keyboard-only: "." opens the palette (whose first group is AI) — the
+	// sidebar AI button advertises it.
+	{
+		id: "ai-menu",
+		label: "AI commands",
+		icon: SparklesIcon,
+		shortcut: ".",
+		group: "AI",
+		hidden: true,
+		run: () => useUIStore.getState().setPaletteOpen(true),
 	},
 
 	// Keyboard-only: mod+1..9 jumps to the Nth mailbox (the palette already

@@ -4,6 +4,7 @@
 import { Events } from "@wailsio/runtime"
 
 import { initAccountsStore } from "@/stores/accounts"
+import { initAIStore } from "@/stores/ai"
 import { initMailStore } from "@/stores/mail"
 import { useSettingsStore } from "@/stores/settings"
 import { initWindowStore } from "@/stores/window"
@@ -64,6 +65,8 @@ const gates: BootGate[] = [
 	{ name: "accounts", check: () => initAccountsStore() },
 	// Cached mail loads before reveal — the inbox is never blank on open.
 	{ name: "mail", check: () => initMailStore() },
+	// AI config + stream subscription (local reads only).
+	{ name: "ai", check: () => initAIStore() },
 ]
 
 function delay(ms: number) {

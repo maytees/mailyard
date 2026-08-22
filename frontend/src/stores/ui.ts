@@ -7,6 +7,9 @@ interface UIState {
 	setAddMailboxOpen: (open: boolean) => void
 	shortcutHelpOpen: boolean
 	setShortcutHelpOpen: (open: boolean) => void
+	/** Command palette visibility — in the store so commands can open it. */
+	paletteOpen: boolean
+	setPaletteOpen: (open: boolean) => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -14,4 +17,6 @@ export const useUIStore = create<UIState>((set) => ({
 	setAddMailboxOpen: (open) => set({ addMailboxOpen: open }),
 	shortcutHelpOpen: false,
 	setShortcutHelpOpen: (open) => set({ shortcutHelpOpen: open }),
+	paletteOpen: false,
+	setPaletteOpen: (open) => set({ paletteOpen: open }),
 }))

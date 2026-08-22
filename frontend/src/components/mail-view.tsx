@@ -8,10 +8,12 @@ import {
 	MailIcon,
 	MailReplyAllIcon,
 	MailReplyIcon,
+	SparklesIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import * as React from "react";
 
+import { AIPanel } from "@/components/ai-panel";
 import { HtmlBody } from "@/components/html-body";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -27,10 +29,13 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { KbdShortcut } from "@/components/ui/kbd";
+import { shortcutFor } from "@/lib/command";
 import { formatBytes, formatFullDate, formatRelativeTime } from "@/lib/format";
 import type { MailboxColor } from "@/lib/mailbox-colors";
 import { cn } from "@/lib/utils";
 import { useAccountsStore } from "@/stores/accounts";
+import { summarizeThread, threadKeyOf } from "@/stores/ai";
 import { composeFromMessage, editDraft } from "@/stores/compose";
 import { useMailStore } from "@/stores/mail";
 import * as MailService from "~/bindings/mailyard/mailservice";
@@ -123,17 +128,40 @@ function MailThread({ message }: { message: Message }) {
 						</span>
 					</div>
 				</div>
-				{folderRole === "drafts" && (
-					<Button
-						variant="outline"
-						size="xs"
-						className="shrink-0"
-						onClick={() => void editDraft(message)}
-					>
-						Edit draft
-					</Button>
-				)}
+				<div className="flex shrink-0 flex-row items-center gap-1.5">
+					{folderRole === "drafts" && (
+						<Button
+							variant="outline"
+							size="xs"
+							onClick={() => void editDraft(message)}
+						>
+							Edit draft
+						</Button>
+					)}
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Button
+									variant="outline"
+									size="xs"
+									color="yellow"
+									onClick={() => summarizeThread(message)}
+								/>
+							}
+						>
+							<HugeiconsIcon icon={SparklesIcon} className="size-3.5" />
+							Summarize
+						</TooltipTrigger>
+						<TooltipContent>
+							<KbdShortcut shortcut={shortcutFor("ai-summarize") ?? ""}>
+								Summarize thread
+							</KbdShortcut>
+						</TooltipContent>
+					</Tooltip>
+				</div>
 			</header>
+
+			<AIPanel threadKey={threadKeyOf(message)} />
 
 			<ScrollArea hideScrollbar className="min-h-0 flex-1">
 				{thread.map((entry, index) => (

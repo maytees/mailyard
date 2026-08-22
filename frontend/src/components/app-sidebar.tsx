@@ -17,6 +17,7 @@ import { KbdShortcut } from "./ui/kbd";
 import { ThemeToggle } from "./theme-toggle";
 import { useWindowStore } from "@/stores/window";
 import { openCompose } from "@/stores/compose";
+import { useUIStore } from "@/stores/ui";
 import { shortcutFor } from "@/lib/command";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +65,7 @@ export function AppSidebar() {
 					<SidebarMenuButton
 						tooltip={<KbdShortcut shortcut=".">AI</KbdShortcut>}
 						size="md"
+						onClick={() => useUIStore.getState().setPaletteOpen(true)}
 					>
 						<HugeiconsIcon icon={TokenSquareIcon} />
 					</SidebarMenuButton>

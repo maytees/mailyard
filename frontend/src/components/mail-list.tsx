@@ -4,6 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useAccountsStore } from "@/stores/accounts";
+import { useAIStore } from "@/stores/ai";
 import { loadMoreMessages, useMailStore } from "@/stores/mail";
 import { useSettingsStore } from "@/stores/settings";
 import type { Message } from "~/bindings/mailyard/internal/store/models";
@@ -19,6 +20,8 @@ export function MailList({ messages, activeId, onSelect }: MailListProps) {
 	const compact = useSettingsStore((s) => s.compact);
 	const accounts = useAccountsStore((s) => s.accounts);
 	const hasMore = useMailStore((s) => s.hasMore);
+	const summaries = useAIStore((s) => s.summaries);
+	const triage = useAIStore((s) => s.triage);
 	const sentinelRef = React.useRef<HTMLDivElement>(null);
 
 	const colorByAccount = React.useMemo(() => {
@@ -68,6 +71,8 @@ export function MailList({ messages, activeId, onSelect }: MailListProps) {
 					color={colorByAccount[message.accountId] ?? "var(--color-mailbox-violet)"}
 					compact={compact}
 					active={message.id === activeId}
+					summary={summaries[String(message.id)]}
+					priority={triage[String(message.id)]}
 					onClick={() => onSelect?.(message)}
 				/>
 			))}
@@ -81,12 +86,18 @@ const MailListItem = ({
 	color,
 	compact,
 	active,
+	summary,
+	priority,
 	onClick,
 }: {
 	message: Message;
 	color: string;
 	compact: boolean;
 	active?: boolean;
+	/** AI one-line digest (opt-in); falls back to the plain snippet. */
+	summary?: string;
+	/** AI triage label: high | normal | low. */
+	priority?: string;
 	onClick?: () => void;
 }) => {
 	const sender = message.from.name || message.from.email || "(unknown)";
@@ -117,6 +128,12 @@ const MailListItem = ({
 				<div className="-space-y-1">
 					<div className="flex flex-row items-center justify-between w-full">
 						<h2 className={cn("truncate", { "font-bold": message.unread })}>
+							{priority === "high" && (
+								<span
+									aria-label="High priority"
+									className="mr-1.5 inline-block size-1.5 rounded-full bg-primary align-middle"
+								/>
+							)}
 							{sender}
 						</h2>
 						<span
@@ -141,7 +158,7 @@ const MailListItem = ({
 							{ "font-medium": message.unread }
 						)}
 					>
-						{message.snippet}
+						{summary ?? message.snippet}
 					</p>
 				)}
 			</div>
