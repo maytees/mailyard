@@ -152,6 +152,16 @@ func (m *MailService) MarkAllRead(ctx context.Context, filter store.ListFilter) 
 	return nil
 }
 
+// SearchContacts powers compose autocomplete: known correspondents matching
+// the typed fragment, best matches first.
+func (m *MailService) SearchContacts(ctx context.Context, query string, limit int) ([]store.Contact, error) {
+	st, err := m.st()
+	if err != nil {
+		return nil, err
+	}
+	return st.SearchContacts(ctx, query, limit)
+}
+
 func (m *MailService) ListAttachments(ctx context.Context, messageID int64) ([]store.Attachment, error) {
 	st, err := m.st()
 	if err != nil {

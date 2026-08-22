@@ -63,6 +63,14 @@ export function SaveAttachment(attachmentID: number): $CancellablePromise<string
 }
 
 /**
+ * SearchContacts powers compose autocomplete: known correspondents matching
+ * the typed fragment, best matches first.
+ */
+export function SearchContacts(query: string, limit: number): $CancellablePromise<store$0.Contact[] | null> {
+    return $Call.ByID(824865675, query, limit);
+}
+
+/**
  * SetStarred applies locally at once and pushes \Flagged in the background.
  */
 export function SetStarred(messageID: number, starred: boolean): $CancellablePromise<void> {

@@ -7,6 +7,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import * as React from "react"
 
+import { AddressInput } from "@/components/address-input"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { KbdShortcut } from "@/components/ui/kbd"
@@ -30,31 +31,6 @@ import {
 	useComposeStore,
 } from "@/stores/compose"
 
-function AddressRow({
-	label,
-	value,
-	onChange,
-	autoFocus,
-}: {
-	label: string
-	value: string
-	onChange: (value: string) => void
-	autoFocus?: boolean
-}) {
-	return (
-		<div className="flex flex-row items-center gap-2 border-b py-1">
-			<span className="w-8 shrink-0 text-xs text-muted-foreground">
-				{label}
-			</span>
-			<Input
-				value={value}
-				onChange={(e) => onChange(e.target.value)}
-				autoFocus={autoFocus}
-				className="h-7 rounded-none border-none bg-transparent px-0 focus-visible:ring-0 focus-visible:border-transparent"
-			/>
-		</div>
-	)
-}
 
 export function ComposeSheet() {
 	const state = useComposeStore()
@@ -115,7 +91,7 @@ export function ComposeSheet() {
 						</div>
 					)}
 
-					<AddressRow
+					<AddressInput
 						label="To"
 						value={state.to}
 						onChange={(v) => setComposeField("to", v)}
@@ -123,12 +99,12 @@ export function ComposeSheet() {
 					/>
 					{showCcBcc ? (
 						<>
-							<AddressRow
+							<AddressInput
 								label="Cc"
 								value={state.cc}
 								onChange={(v) => setComposeField("cc", v)}
 							/>
-							<AddressRow
+							<AddressInput
 								label="Bcc"
 								value={state.bcc}
 								onChange={(v) => setComposeField("bcc", v)}

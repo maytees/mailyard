@@ -35,6 +35,15 @@ export interface Attachment {
 }
 
 /**
+ * Contact is a known correspondent, derived from synced mail — no separate
+ * address book to maintain.
+ */
+export interface Contact {
+    "email": string;
+    "name": string;
+}
+
+/**
  * ListFilter selects a message list slice. Empty AccountID means the unified
  * view across every account.
  */

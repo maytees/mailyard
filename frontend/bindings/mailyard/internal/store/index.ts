@@ -5,6 +5,7 @@ export type {
     Account,
     Address,
     Attachment,
+    Contact,
     ListFilter,
     Message,
     MessageBody,
