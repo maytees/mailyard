@@ -186,6 +186,15 @@ function AccountRow({ account }: { account: Account }) {
 
 const PROVIDERS = ["anthropic", "openai", "google", "ollama"] as const
 
+// Swapping provider auto-fills a sensible model unless the user typed a
+// custom one.
+const PROVIDER_DEFAULT_MODEL: Record<string, string> = {
+	anthropic: "claude-sonnet-5",
+	openai: "gpt-4o",
+	google: "gemini-2.5-flash",
+	ollama: "qwen3:8b",
+}
+
 function AISection() {
 	const config = useAIStore((s) => s.config)
 	const [provider, setProvider] = React.useState("")
@@ -224,12 +233,19 @@ function AISection() {
 					<span className="text-xs text-muted-foreground">Provider</span>
 					<select
 						value={provider}
-						onChange={(e) => setProvider(e.target.value)}
+						onChange={(e) => {
+							const next = e.target.value
+							setProvider(next)
+							const defaults = Object.values(PROVIDER_DEFAULT_MODEL)
+							if (!model || defaults.includes(model)) {
+								setModel(PROVIDER_DEFAULT_MODEL[next] ?? model)
+							}
+						}}
 						className="h-9 cursor-pointer rounded-3xl border border-transparent bg-input/50 px-3 text-sm outline-none"
 					>
 						{PROVIDERS.map((name) => (
 							<option key={name} value={name}>
-								{name}
+								{name === "ollama" ? "ollama (local)" : name}
 							</option>
 						))}
 					</select>
@@ -239,15 +255,23 @@ function AISection() {
 					<Input value={model} onChange={(e) => setModel(e.target.value)} />
 				</label>
 			</div>
-			<label className="flex flex-col gap-1.5">
-				<span className="text-xs text-muted-foreground">API key</span>
-				<Input
-					type="password"
-					value={apiKey}
-					onChange={(e) => setApiKey(e.target.value)}
-					placeholder={config?.hasKey ? "•••••••• (saved in keychain)" : "sk-…"}
-				/>
-			</label>
+			{provider === "ollama" ? (
+				<p className="text-xs text-muted-foreground">
+					Runs locally through Ollama (localhost:11434) — no API key, and
+					nothing leaves your machine. Pull models with{" "}
+					<code className="rounded bg-muted px-1">ollama pull qwen3:8b</code>.
+				</p>
+			) : (
+				<label className="flex flex-col gap-1.5">
+					<span className="text-xs text-muted-foreground">API key</span>
+					<Input
+						type="password"
+						value={apiKey}
+						onChange={(e) => setApiKey(e.target.value)}
+						placeholder={config?.hasKey ? "•••••••• (saved in keychain)" : "sk-…"}
+					/>
+				</label>
+			)}
 			<label className="flex cursor-pointer flex-row items-center gap-2 text-sm">
 				<input
 					type="checkbox"

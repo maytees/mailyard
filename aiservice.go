@@ -168,7 +168,11 @@ func (a *AIService) generateSummaries() {
 	}
 	ctx := context.Background()
 	config, err := service.Config(ctx)
-	if err != nil || !config.ListSummaries || !config.HasKey {
+	if err != nil || !config.ListSummaries {
+		return
+	}
+	// Ollama is local — it never has (or needs) an API key.
+	if !config.HasKey && config.Provider != "ollama" {
 		return
 	}
 	count, err := service.GenerateListSummaries(ctx, 10)
