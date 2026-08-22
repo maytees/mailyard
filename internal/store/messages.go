@@ -456,6 +456,18 @@ func (s *Store) ListAttachments(ctx context.Context, messageID int64) ([]Attachm
 	return attachments, rows.Err()
 }
 
+func (s *Store) GetAttachment(ctx context.Context, id int64) (Attachment, error) {
+	var a Attachment
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, message_id, filename, mime_type, size, content_id
+		FROM attachments WHERE id = ?`, id).
+		Scan(&a.ID, &a.MessageID, &a.Filename, &a.MimeType, &a.Size, &a.ContentID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Attachment{}, fmt.Errorf("attachment %d not found", id)
+	}
+	return a, err
+}
+
 // AttachmentData returns the stored bytes (nil when not yet downloaded).
 func (s *Store) AttachmentData(ctx context.Context, id int64) ([]byte, error) {
 	var data []byte

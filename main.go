@@ -50,6 +50,7 @@ func main() {
 			application.NewService(boot),
 			application.NewService(&AccountService{boot: boot}),
 			application.NewService(syncSvc),
+			application.NewService(&MailService{boot: boot, sync: syncSvc}),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

@@ -14,3 +14,55 @@ export interface Account {
     "authKind": string;
     "createdAt": number;
 }
+
+export interface Address {
+    "name": string;
+    "email": string;
+}
+
+export interface Attachment {
+    "id": number;
+    "messageId": number;
+    "filename": string;
+    "mimeType": string;
+    "size": number;
+    "contentId": string;
+}
+
+/**
+ * ListFilter selects a message list slice. Empty AccountID means the unified
+ * view across every account.
+ */
+export interface ListFilter {
+    "accountId": string;
+    "folderRole": string;
+    "limit": number;
+    "offset": number;
+}
+
+export interface Message {
+    "id": number;
+    "accountId": string;
+    "folderId": number;
+    "uid": number;
+    "messageId": string;
+    "threadId": string;
+    "subject": string;
+    "from": Address;
+    "to": Address[] | null;
+    "cc": Address[] | null;
+    "date": number;
+    "snippet": string;
+    "unread": boolean;
+    "starred": boolean;
+    "answered": boolean;
+    "hasAttachments": boolean;
+    "size": number;
+    "snoozedUntil": number;
+}
+
+export interface MessageBody {
+    "messageId": number;
+    "textBody": string;
+    "htmlSanitized": string;
+}

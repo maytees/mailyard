@@ -48,7 +48,8 @@ type Engine struct {
 
 	mu      sync.Mutex
 	workers map[string]context.CancelFunc
-	syncMu  sync.Mutex // one full sync pass at a time per engine
+	conns   map[string]*actionConn // cached action connections, see actions.go
+	syncMu  sync.Mutex             // one full sync pass at a time per engine
 }
 
 func (e *Engine) events() Emitter {

@@ -3,9 +3,11 @@
 
 import * as AccountService from "./accountservice.js";
 import * as BootService from "./bootservice.js";
+import * as MailService from "./mailservice.js";
 import * as SyncService from "./syncservice.js";
 export {
     AccountService,
     BootService,
+    MailService,
     SyncService
 };

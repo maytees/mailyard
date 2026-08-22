@@ -24,6 +24,19 @@ func (s *Store) UpsertFolder(ctx context.Context, f Folder) (int64, error) {
 	return id, err
 }
 
+func (s *Store) GetFolder(ctx context.Context, id int64) (Folder, error) {
+	var f Folder
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, account_id, name, role, uidvalidity, uidnext, last_synced_at
+		FROM folders WHERE id = ?`, id).
+		Scan(&f.ID, &f.AccountID, &f.Name, &f.Role,
+			&f.UIDValidity, &f.UIDNext, &f.LastSyncedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Folder{}, fmt.Errorf("folder %d not found", id)
+	}
+	return f, err
+}
+
 func (s *Store) ListFolders(ctx context.Context, accountID string) ([]Folder, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, account_id, name, role, uidvalidity, uidnext, last_synced_at

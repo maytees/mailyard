@@ -71,6 +71,14 @@ func (s *SyncService) ServiceShutdown() error {
 	return nil
 }
 
+// engineHandle exposes the running engine to sibling services (nil before
+// first reveal).
+func (s *SyncService) engineHandle() *mail.Engine {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.engine
+}
+
 // SyncNow runs one incremental pass over every account (palette "Sync now").
 func (s *SyncService) SyncNow(ctx context.Context) error {
 	s.mu.Lock()
