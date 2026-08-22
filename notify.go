@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
+	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
@@ -21,6 +24,16 @@ var (
 // dev binary) are logged and ignored.
 func notifyNewMail(account store.Account, count int, latest store.Message) {
 	notifyOnce.Do(func() {
+		// UNUserNotificationCenter throws an uncaught NSException (killing the
+		// process) when there is no app bundle — i.e. running the bare binary
+		// instead of mailyard.app. Never touch the API in that case.
+		if runtime.GOOS == "darwin" {
+			exe, err := os.Executable()
+			if err != nil || !strings.Contains(exe, ".app/Contents/MacOS/") {
+				log.Printf("notifications disabled: not running from an app bundle")
+				return
+			}
+		}
 		notifySvc = notifications.New()
 		allowed, err := notifySvc.RequestNotificationAuthorization()
 		if err != nil {
