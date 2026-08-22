@@ -124,7 +124,7 @@ func TestMessageUpsertListAndFlags(t *testing.T) {
 	inboxA := testFolder(t, s, a.ID, "INBOX", RoleInbox)
 	inboxB := testFolder(t, s, b.ID, "INBOX", RoleInbox)
 
-	id1, err := s.UpsertMessage(ctx, Message{
+	id1, _, err := s.UpsertMessage(ctx, Message{
 		AccountID: a.ID, FolderID: inboxA, UID: 1, MessageID: "<m1@x>",
 		Subject: "Hello", From: Address{Name: "Ann", Email: "ann@x"},
 		To: []Address{{Email: a.Email}}, Date: 100, Unread: true,
@@ -132,7 +132,7 @@ func TestMessageUpsertListAndFlags(t *testing.T) {
 	if err != nil {
 		t.Fatalf("upsert m1: %v", err)
 	}
-	if _, err := s.UpsertMessage(ctx, Message{
+	if _, _, err := s.UpsertMessage(ctx, Message{
 		AccountID: b.ID, FolderID: inboxB, UID: 1, MessageID: "<m2@x>",
 		Subject: "Newer", From: Address{Email: "bob@x"}, Date: 200, Unread: true,
 	}); err != nil {
@@ -140,7 +140,7 @@ func TestMessageUpsertListAndFlags(t *testing.T) {
 	}
 
 	// Re-upsert of the same (folder, uid) updates flags, not duplicates.
-	again, err := s.UpsertMessage(ctx, Message{
+	again, _, err := s.UpsertMessage(ctx, Message{
 		AccountID: a.ID, FolderID: inboxA, UID: 1, MessageID: "<m1@x>",
 		Subject: "Hello", Date: 100, Unread: false,
 	})
@@ -195,21 +195,21 @@ func TestThreadingResolvesAcrossArrivalOrder(t *testing.T) {
 	inbox := testFolder(t, s, a.ID, "INBOX", RoleInbox)
 
 	// Reply arrives before the message it references.
-	if _, err := s.UpsertMessage(ctx, Message{
+	if _, _, err := s.UpsertMessage(ctx, Message{
 		AccountID: a.ID, FolderID: inbox, UID: 1, MessageID: "<reply@x>",
 		Refs: "<root@x>", Subject: "Re: Topic", Date: 200,
 	}); err != nil {
 		t.Fatalf("upsert reply: %v", err)
 	}
 	// Root arrives later and must join the reply's thread.
-	if _, err := s.UpsertMessage(ctx, Message{
+	if _, _, err := s.UpsertMessage(ctx, Message{
 		AccountID: a.ID, FolderID: inbox, UID: 2, MessageID: "<root@x>",
 		Subject: "Topic", Date: 100,
 	}); err != nil {
 		t.Fatalf("upsert root: %v", err)
 	}
 	// A later reply referencing both lands in the same thread.
-	if _, err := s.UpsertMessage(ctx, Message{
+	if _, _, err := s.UpsertMessage(ctx, Message{
 		AccountID: a.ID, FolderID: inbox, UID: 3, MessageID: "<reply2@x>",
 		Refs: "<root@x> <reply@x>", Subject: "Re: Topic", Date: 300,
 	}); err != nil {
@@ -239,7 +239,7 @@ func TestBodiesAndSearch(t *testing.T) {
 	a := testAccount(t, s, "acc1")
 	inbox := testFolder(t, s, a.ID, "INBOX", RoleInbox)
 
-	id, err := s.UpsertMessage(ctx, Message{
+	id, _, err := s.UpsertMessage(ctx, Message{
 		AccountID: a.ID, FolderID: inbox, UID: 1, MessageID: "<m1@x>",
 		Subject: "Quarterly invoice", From: Address{Name: "Stripe", Email: "billing@stripe.com"},
 		Date: 100,
@@ -282,7 +282,7 @@ func TestAttachments(t *testing.T) {
 	ctx := context.Background()
 	a := testAccount(t, s, "acc1")
 	inbox := testFolder(t, s, a.ID, "INBOX", RoleInbox)
-	msgID, err := s.UpsertMessage(ctx, Message{
+	msgID, _, err := s.UpsertMessage(ctx, Message{
 		AccountID: a.ID, FolderID: inbox, UID: 1, Subject: "With file", Date: 1,
 		HasAttachments: true,
 	})
@@ -314,7 +314,7 @@ func TestDeleteAccountCascades(t *testing.T) {
 	ctx := context.Background()
 	a := testAccount(t, s, "acc1")
 	inbox := testFolder(t, s, a.ID, "INBOX", RoleInbox)
-	id, err := s.UpsertMessage(ctx, Message{
+	id, _, err := s.UpsertMessage(ctx, Message{
 		AccountID: a.ID, FolderID: inbox, UID: 1, Subject: "Bye", Date: 1,
 	})
 	if err != nil {

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"mailyard/internal/mail"
 )
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
@@ -26,6 +28,10 @@ func init() {
 
 	// Fired after any account add/update/remove; the frontend refetches.
 	application.RegisterEvent[bool]("accounts:changed")
+
+	// Sync engine → UI: a folder's local mail changed / per-account status.
+	application.RegisterEvent[mail.MailChanged]("mail:changed")
+	application.RegisterEvent[mail.SyncStatus]("sync:status")
 }
 
 // main is the application's entry point: it wires up the Wails app, the
@@ -36,12 +42,14 @@ func main() {
 	// to the frontend through generated bindings. They share the store opened
 	// by BootService during startup.
 	boot := &BootService{}
+	syncSvc := &SyncService{boot: boot}
 	app := application.New(application.Options{
 		Name:        "mailyard",
 		Description: "A unified AI inbox.",
 		Services: []application.Service{
 			application.NewService(boot),
 			application.NewService(&AccountService{boot: boot}),
+			application.NewService(syncSvc),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -97,12 +105,14 @@ func main() {
 	})
 
 	// Swap splash → main when the frontend's boot gates pass. Once-guarded so
-	// the failsafe below and the event can't double-fire.
+	// the failsafe below and the event can't double-fire. IMAP sync starts
+	// here — after reveal, never before — so the app opens instantly offline.
 	var revealOnce sync.Once
 	reveal := func() {
 		revealOnce.Do(func() {
 			mainWindow.Show()
 			splash.Close()
+			go syncSvc.start()
 		})
 	}
 

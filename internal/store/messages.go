@@ -38,11 +38,12 @@ func scanMessage(row interface{ Scan(...any) error }) (Message, error) {
 
 // UpsertMessage inserts a synced message (resolving its thread) or, when the
 // (folder, uid) pair already exists, refreshes its server-owned flags.
-// Returns the local message id.
-func (s *Store) UpsertMessage(ctx context.Context, m Message) (int64, error) {
+// Returns the local message id and whether a new row was inserted (so the
+// sync engine knows to store the body and attachments exactly once).
+func (s *Store) UpsertMessage(ctx context.Context, m Message) (int64, bool, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	defer tx.Rollback()
 
@@ -57,28 +58,28 @@ func (s *Store) UpsertMessage(ctx context.Context, m Message) (int64, error) {
 			UPDATE messages SET is_unread = ?, is_starred = ?, is_answered = ?
 			WHERE id = ?`,
 			m.Unread, m.Starred, m.Answered, existingID); err != nil {
-			return 0, err
+			return 0, false, err
 		}
 		if err := tx.Commit(); err != nil {
-			return 0, err
+			return 0, false, err
 		}
-		return existingID, nil
+		return existingID, false, nil
 	case !errors.Is(err, sql.ErrNoRows):
-		return 0, err
+		return 0, false, err
 	}
 
 	threadID, err := resolveThreadTx(ctx, tx, m.AccountID, m.MessageID, m.Refs)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 
 	toJSON, err := json.Marshal(orEmpty(m.To))
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	ccJSON, err := json.Marshal(orEmpty(m.Cc))
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 
 	var id int64
@@ -93,7 +94,7 @@ func (s *Store) UpsertMessage(ctx context.Context, m Message) (int64, error) {
 		m.Subject, m.From.Name, m.From.Email, string(toJSON), string(ccJSON),
 		m.Date, m.Snippet, m.Unread, m.Starred, m.Answered,
 		m.HasAttachments, m.Size, m.SnoozedUntil).Scan(&id); err != nil {
-		return 0, err
+		return 0, false, err
 	}
 
 	// Seed the search index; the body column fills in when the body syncs.
@@ -101,10 +102,13 @@ func (s *Store) UpsertMessage(ctx context.Context, m Message) (int64, error) {
 		INSERT INTO messages_fts (rowid, subject, sender, body)
 		VALUES (?, ?, ?, '')`,
 		id, m.Subject, m.From.Name+" "+m.From.Email); err != nil {
-		return 0, err
+		return 0, false, err
 	}
 
-	return id, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return 0, false, err
+	}
+	return id, true, nil
 }
 
 func orEmpty(addrs []Address) []Address {
@@ -303,6 +307,57 @@ func (s *Store) MoveMessage(ctx context.Context, id, newFolderID int64, newUID u
 		`UPDATE messages SET folder_id = ?, uid = ? WHERE id = ?`,
 		newFolderID, newUID, id)
 	return err
+}
+
+// DeleteFolderMessages wipes a folder's local mail — used when the server
+// reports a UIDVALIDITY change, which invalidates every stored UID.
+func (s *Store) DeleteFolderMessages(ctx context.Context, folderID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM messages_fts WHERE rowid IN
+			(SELECT id FROM messages WHERE folder_id = ?)`, folderID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM messages WHERE folder_id = ?`, folderID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// UIDFlags is the per-message state the sync engine reconciles against the
+// server's FLAGS fetch.
+type UIDFlags struct {
+	ID       int64
+	Unread   bool
+	Starred  bool
+	Answered bool
+}
+
+// FolderUIDFlags maps every synced UID in a folder to its local flag state.
+func (s *Store) FolderUIDFlags(ctx context.Context, folderID int64) (map[uint32]UIDFlags, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT uid, id, is_unread, is_starred, is_answered
+		FROM messages WHERE folder_id = ?`, folderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	flags := map[uint32]UIDFlags{}
+	for rows.Next() {
+		var uid uint32
+		var f UIDFlags
+		if err := rows.Scan(&uid, &f.ID, &f.Unread, &f.Starred, &f.Answered); err != nil {
+			return nil, err
+		}
+		flags[uid] = f
+	}
+	return flags, rows.Err()
 }
 
 func (s *Store) DeleteMessage(ctx context.Context, id int64) error {

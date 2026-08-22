@@ -5,12 +5,18 @@
 // @ts-ignore: Unused imports
 import type { Events } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import type * as mail$0 from "../../../../../mailyard/internal/mail/models.js";
+
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
             "accounts:changed": boolean;
             "backend:ready": boolean;
             "frontend:ready": boolean;
+            "mail:changed": mail$0.MailChanged;
+            "sync:status": mail$0.SyncStatus;
         }
     }
 }
