@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { providers, type MailProvider } from "@/data/providers"
-import { mailboxColors, type MailboxColor } from "@/lib/mailbox-colors"
+import { accentChoices, type MailboxColor } from "@/lib/mailbox-colors"
 import { cn } from "@/lib/utils"
 import { useUIStore } from "@/stores/ui"
 import * as AccountService from "~/bindings/mailyard/accountservice"
@@ -201,18 +201,19 @@ export function AddMailboxDialog() {
 						</div>
 					)}
 
-					<div className="flex flex-col gap-1.5">
+					<div className="flex flex-col gap-2">
 						<span className="text-xs font-medium text-muted-foreground">
 							Accent
 						</span>
-						<div className="flex flex-wrap gap-1.5">
-							{mailboxColors.map((name) => (
+						{/* justify-between so the row spans the full dialog width. */}
+						<div className="flex w-full flex-row justify-between">
+							{accentChoices.map((name) => (
 								<button
 									key={name}
 									type="button"
 									aria-label={`${name} accent`}
 									className={cn(
-										"size-5 rounded-full transition-transform hover:scale-110",
+										"size-7 rounded-full transition-transform hover:scale-110",
 										name === color &&
 											"ring-2 ring-ring ring-offset-2 ring-offset-popover"
 									)}

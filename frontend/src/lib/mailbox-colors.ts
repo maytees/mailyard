@@ -38,6 +38,24 @@ export type MailboxColor = keyof typeof colorVariants
 /** Every color key — for cva compoundVariants ({ color: mailboxColors, ... }). */
 export const mailboxColors = Object.keys(colorVariants) as MailboxColor[]
 
+/**
+ * The curated picker subset: ten visually distinct hues (the full palette has
+ * too many near-duplicates for a swatch row). Existing accounts may still
+ * carry any of the seventeen.
+ */
+export const accentChoices: MailboxColor[] = [
+	"rose",
+	"orange",
+	"amber",
+	"lime",
+	"emerald",
+	"teal",
+	"sky",
+	"blue",
+	"violet",
+	"fuchsia",
+]
+
 // Treatments. Each covers rest / hover / pressed (active) / selected
 // (data-active or aria-expanded) plus focus rings.
 
