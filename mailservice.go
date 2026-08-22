@@ -51,6 +51,15 @@ func (m *MailService) GetMessageBody(ctx context.Context, messageID int64) (stor
 	return st.GetMessageBody(ctx, messageID)
 }
 
+// CountByRole counts messages in folders of one role (the Drafts badge).
+func (m *MailService) CountByRole(ctx context.Context, role string) (int, error) {
+	st, err := m.st()
+	if err != nil {
+		return 0, err
+	}
+	return st.CountByRole(ctx, role)
+}
+
 func (m *MailService) UnreadCounts(ctx context.Context) (map[string]int, error) {
 	st, err := m.st()
 	if err != nil {

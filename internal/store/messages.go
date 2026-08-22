@@ -289,6 +289,17 @@ func (s *Store) queryMessages(ctx context.Context, query string, args ...any) ([
 	return messages, rows.Err()
 }
 
+// CountByRole counts messages across all accounts in folders of one role
+// (e.g. the Drafts badge).
+func (s *Store) CountByRole(ctx context.Context, role string) (int, error) {
+	var count int
+	err := s.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM messages m
+		JOIN folders fo ON fo.id = m.folder_id
+		WHERE fo.role = ?`, role).Scan(&count)
+	return count, err
+}
+
 // UnreadCounts maps account id → unread inbox messages.
 func (s *Store) UnreadCounts(ctx context.Context) (map[string]int, error) {
 	rows, err := s.db.QueryContext(ctx, `

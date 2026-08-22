@@ -24,6 +24,8 @@ interface MailState {
 	folderRole: string
 	/** Per-account unread inbox counts (rail badges + header). */
 	unreadCounts: Record<string, number>
+	/** Unfinished mail across all accounts (palette badge). */
+	draftCount: number
 	/** Per-account sync engine status (sidebar indicator). */
 	syncStatus: Record<string, SyncState>
 	loading: boolean
@@ -37,6 +39,7 @@ export const useMailStore = create<MailState>(() => ({
 	accountFilter: "",
 	folderRole: "inbox",
 	unreadCounts: {},
+	draftCount: 0,
 	syncStatus: {},
 	loading: false,
 	hasMore: false,
@@ -96,6 +99,10 @@ export async function refreshUnreadCounts() {
 		if (typeof count === "number") counts[accountId] = count
 	}
 	useMailStore.setState({ unreadCounts: counts })
+
+	MailService.CountByRole("drafts")
+		.then((draftCount) => useMailStore.setState({ draftCount }))
+		.catch(() => {})
 }
 
 /** Selects a message and marks it read (optimistically; Go pushes \Seen). */

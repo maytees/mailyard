@@ -17,7 +17,11 @@ import {
 	summarizeThread,
 	triageInbox,
 } from "@/stores/ai"
-import { composeFromMessage, openCompose } from "@/stores/compose"
+import {
+	composeFromMessage,
+	continueLastDraft,
+	openCompose,
+} from "@/stores/compose"
 import {
 	refreshMailList,
 	refreshUnreadCounts,
@@ -144,6 +148,14 @@ export const commands: AppCommand[] = [
 	// Mail actions.
 	{ id: "compose", label: "Compose", icon: PencilIcon, shortcut: "alt+c", group: "Mail actions", run: () => openCompose() },
 	{
+		id: "continue-draft",
+		label: "Continue last draft",
+		icon: MailEditIcon,
+		shortcut: "alt+shift+c",
+		group: "Mail actions",
+		run: () => void continueLastDraft(),
+	},
+	{
 		id: "reply", label: "Reply", icon: MailReplyIcon, shortcut: "r", group: "Mail actions",
 		run: () => {
 			const message = activeMessage()
@@ -175,7 +187,17 @@ export const commands: AppCommand[] = [
 	// Navigation — folder switching. The g-sequences bind once the sequence
 	// engine lands (Phase 7); running from the palette works today.
 	{ id: "go-inbox", label: "Go to Inbox", icon: InboxIcon, shortcut: "g+i", group: "Navigation", run: () => setFolderRole("inbox") },
-	{ id: "go-drafts", label: "Go to Drafts", icon: MailEditIcon, shortcut: "g+d", group: "Navigation", run: () => setFolderRole("drafts") },
+	{
+		id: "go-drafts",
+		label: () => {
+			const count = useMailStore.getState().draftCount
+			return count > 0 ? `Go to Drafts (${count})` : "Go to Drafts"
+		},
+		icon: MailEditIcon,
+		shortcut: "g+d",
+		group: "Navigation",
+		run: () => setFolderRole("drafts"),
+	},
 	{ id: "go-sent", label: "Go to Sent", icon: SentIcon, shortcut: "g+s", group: "Navigation", run: () => setFolderRole("sent") },
 	{ id: "go-archive", label: "Go to Archive", icon: Archive02Icon, shortcut: "g+a", group: "Navigation", run: () => setFolderRole("archive") },
 	{ id: "go-trash", label: "Go to Trash", icon: Delete01Icon, shortcut: "g+t", group: "Navigation", run: () => setFolderRole("trash") },

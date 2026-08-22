@@ -1,6 +1,7 @@
 import {
 	Attachment01Icon,
 	Cancel01Icon,
+	Delete02Icon,
 	MagicWandIcon,
 	SentIcon,
 } from "@hugeicons/core-free-icons"
@@ -24,6 +25,7 @@ import { useAccountsStore } from "@/stores/accounts"
 import { rewriteComposeBody } from "@/stores/ai"
 import {
 	closeCompose,
+	discardCompose,
 	pickComposeAttachments,
 	removeComposeAttachment,
 	sendCompose,
@@ -179,6 +181,20 @@ export function ComposeSheet() {
 						>
 							<HugeiconsIcon icon={Attachment01Icon} />
 						</Button>
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							aria-label="Discard draft"
+							className="text-muted-foreground hover:text-destructive"
+							onClick={discardCompose}
+						>
+							<HugeiconsIcon icon={Delete02Icon} />
+						</Button>
+						{state.draftStatus && (
+							<span className="ml-1 text-xs text-muted-foreground">
+								{state.draftStatus === "saving" ? "Saving…" : "Saved"}
+							</span>
+						)}
 						{state.body.trim() && (
 							<div className="ml-1 flex flex-row items-center gap-1">
 								<HugeiconsIcon

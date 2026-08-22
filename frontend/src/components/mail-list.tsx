@@ -20,6 +20,7 @@ export function MailList({ messages, activeId, onSelect }: MailListProps) {
 	const compact = useSettingsStore((s) => s.compact);
 	const accounts = useAccountsStore((s) => s.accounts);
 	const hasMore = useMailStore((s) => s.hasMore);
+	const folderRole = useMailStore((s) => s.folderRole);
 	const summaries = useAIStore((s) => s.summaries);
 	const triage = useAIStore((s) => s.triage);
 	const sentinelRef = React.useRef<HTMLDivElement>(null);
@@ -73,6 +74,7 @@ export function MailList({ messages, activeId, onSelect }: MailListProps) {
 					active={message.id === activeId}
 					summary={summaries[String(message.id)]}
 					priority={triage[String(message.id)]}
+					isDraft={folderRole === "drafts"}
 					onClick={() => onSelect?.(message)}
 				/>
 			))}
@@ -88,6 +90,7 @@ const MailListItem = ({
 	active,
 	summary,
 	priority,
+	isDraft,
 	onClick,
 }: {
 	message: Message;
@@ -98,9 +101,16 @@ const MailListItem = ({
 	summary?: string;
 	/** AI triage label: high | normal | low. */
 	priority?: string;
+	/** Draft rows show the recipient (the sender is always "you"). */
+	isDraft?: boolean;
 	onClick?: () => void;
 }) => {
-	const sender = message.from.name || message.from.email || "(unknown)";
+	const recipient = (message.to ?? [])
+		.map((address) => address.name || address.email)
+		.join(", ");
+	const sender = isDraft
+		? recipient || "(no recipient)"
+		: message.from.name || message.from.email || "(unknown)";
 
 	return (
 		<div
@@ -133,6 +143,9 @@ const MailListItem = ({
 									aria-label="High priority"
 									className="mr-1.5 inline-block size-1.5 rounded-full bg-primary align-middle"
 								/>
+							)}
+							{isDraft && (
+								<span className="mr-1.5 font-medium text-primary">Draft</span>
 							)}
 							{sender}
 						</h2>

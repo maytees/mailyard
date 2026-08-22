@@ -29,6 +29,8 @@ interface ComposeState {
 	replyToMessageId: number
 	/** Local id of the last autosaved draft version (replaced on resave). */
 	draftId: number
+	/** "" = edited since last save; feeds the footer indicator. */
+	draftStatus: "" | "saving" | "saved"
 	sending: boolean
 	error: string
 }
@@ -46,6 +48,7 @@ const emptyDraft = {
 	references: "",
 	replyToMessageId: 0,
 	draftId: 0,
+	draftStatus: "" as const,
 	sending: false,
 	error: "",
 }
@@ -59,8 +62,12 @@ export function setComposeField<K extends keyof ComposeState>(
 	field: K,
 	value: ComposeState[K]
 ) {
-	useComposeStore.setState({ [field]: value } as Pick<ComposeState, K>)
+	useComposeStore.setState({
+		[field]: value,
+		draftStatus: "",
+	} as Pick<ComposeState, K | "draftStatus">)
 	scheduleDraftSave()
+	writeBackup()
 }
 
 export function openCompose(prefill: Partial<ComposeState> = {}) {
@@ -121,6 +128,7 @@ export async function sendCompose() {
 		if (state.draftId) {
 			SendService.DeleteDraft(state.draftId).catch(() => {})
 		}
+		clearBackup()
 		useComposeStore.setState({ open: false, ...emptyDraft })
 		toast.success("Message sent")
 	} catch (raw: unknown) {
@@ -173,14 +181,112 @@ function cancelDraftSave() {
 async function saveDraftNow() {
 	const state = useComposeStore.getState()
 	if (state.sending || !hasContent(state) || !state.accountId) return
+	useComposeStore.setState({ draftStatus: "saving" })
 	try {
 		const id = await SendService.SaveDraft(toOutgoing(state), state.draftId)
-		if (id) {
-			useComposeStore.setState({ draftId: id })
+		useComposeStore.setState((current) =>
+			// Late responses must not clobber a fresher edit's "" status.
+			current.draftStatus === "saving"
+				? { draftId: id || current.draftId, draftStatus: "saved" }
+				: { draftId: id || current.draftId }
+		)
+	} catch {
+		// Server save failed (offline, no Drafts folder) — the localStorage
+		// backup written on every edit is the safety net.
+		useComposeStore.setState((current) =>
+			current.draftStatus === "saving" ? { draftStatus: "" } : {}
+		)
+	}
+}
+
+// ---- local backup (crash/offline safety net + "continue last draft") -------
+
+const BACKUP_KEY = "mailyard-draft-backup"
+
+type DraftBackup = Pick<
+	ComposeState,
+	| "mode"
+	| "accountId"
+	| "to"
+	| "cc"
+	| "bcc"
+	| "subject"
+	| "body"
+	| "inReplyTo"
+	| "references"
+	| "replyToMessageId"
+	| "draftId"
+>
+
+function writeBackup() {
+	const state = useComposeStore.getState()
+	if (!hasContent(state)) return
+	const backup: DraftBackup = {
+		mode: state.mode,
+		accountId: state.accountId,
+		to: state.to,
+		cc: state.cc,
+		bcc: state.bcc,
+		subject: state.subject,
+		body: state.body,
+		inReplyTo: state.inReplyTo,
+		references: state.references,
+		replyToMessageId: state.replyToMessageId,
+		draftId: state.draftId,
+	}
+	try {
+		localStorage.setItem(BACKUP_KEY, JSON.stringify(backup))
+	} catch {
+		// Quota errors just mean no backup this round.
+	}
+}
+
+function clearBackup() {
+	localStorage.removeItem(BACKUP_KEY)
+}
+
+/**
+ * Reopens the most recent unfinished mail: the local backup when one exists
+ * (it survives crashes and offline sessions), else the newest server draft.
+ */
+export async function continueLastDraft() {
+	const raw = localStorage.getItem(BACKUP_KEY)
+	if (raw) {
+		try {
+			const backup = JSON.parse(raw) as DraftBackup
+			openCompose(backup)
+			return
+		} catch {
+			clearBackup()
+		}
+	}
+	try {
+		const drafts = await MailService.ListMessages({
+			accountId: "",
+			folderRole: "drafts",
+			limit: 1,
+			offset: 0,
+		})
+		if (drafts && drafts.length > 0) {
+			await editDraft(drafts[0])
+			return
 		}
 	} catch {
-		// Draft autosave is best-effort (e.g. offline); sending still works.
+		// Fall through to the empty-state toast.
 	}
+	toast("No drafts to continue")
+}
+
+/** Deletes the draft (server + backup) and closes without saving. */
+export function discardCompose() {
+	const { draftId } = useComposeStore.getState()
+	cancelDraftSave()
+	if (draftId) {
+		SendService.DeleteDraft(draftId).catch(() => {})
+	}
+	clearBackup()
+	useComposeStore.setState({ open: false, ...emptyDraft })
+	toast("Draft discarded")
 }
 
 // ---- prefill from an existing message --------------------------------------

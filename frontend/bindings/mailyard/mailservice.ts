@@ -22,6 +22,13 @@ export function Archive(messageID: number): $CancellablePromise<void> {
     return $Call.ByID(1112366144, messageID);
 }
 
+/**
+ * CountByRole counts messages in folders of one role (the Drafts badge).
+ */
+export function CountByRole(role: string): $CancellablePromise<number> {
+    return $Call.ByID(2161049184, role);
+}
+
 export function GetMessageBody(messageID: number): $CancellablePromise<store$0.MessageBody> {
     return $Call.ByID(548725893, messageID);
 }

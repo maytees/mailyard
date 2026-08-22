@@ -13,6 +13,7 @@ import { KbdShortcut } from "@/components/ui/kbd";
 import { shortcutFor } from "@/lib/command";
 import { formatShortcut } from "@/lib/keyboard";
 import { useAccountsStore } from "@/stores/accounts";
+import { editDraft } from "@/stores/compose";
 import { setActiveMessage, useMailStore } from "@/stores/mail";
 import { useSettingsStore } from "@/stores/settings";
 
@@ -104,6 +105,7 @@ function MailPaneHeader() {
 export function MailPane() {
 	const messages = useMailStore((s) => s.messages);
 	const activeMessageId = useMailStore((s) => s.activeMessageId);
+	const folderRole = useMailStore((s) => s.folderRole);
 
 	return (
 		<div className="flex h-svh bg-secondary max-w-md flex-col border-r">
@@ -111,7 +113,13 @@ export function MailPane() {
 			<MailList
 				messages={messages}
 				activeId={activeMessageId ?? undefined}
-				onSelect={(message) => setActiveMessage(message.id)}
+				onSelect={(message) => {
+					setActiveMessage(message.id);
+					// Drafts open straight into the composer, Gmail-style.
+					if (folderRole === "drafts") {
+						void editDraft(message);
+					}
+				}}
 			/>
 		</div>
 	);
