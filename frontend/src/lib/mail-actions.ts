@@ -10,7 +10,6 @@ import {
 	useMailStore,
 } from "@/stores/mail"
 import * as MailService from "~/bindings/mailyard/mailservice"
-import type { Message } from "~/bindings/mailyard/internal/store/models"
 
 const UNDO_WINDOW_MS = 5000
 
