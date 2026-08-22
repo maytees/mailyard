@@ -12,4 +12,4 @@ build/android/gen/
 .DS_Store
 
 # Compiled app binary
-mailyard
+/mailyard
