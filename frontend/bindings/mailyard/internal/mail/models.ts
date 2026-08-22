@@ -11,6 +11,35 @@ export interface MailChanged {
 }
 
 /**
+ * Outgoing is a message the user composed: a fresh mail, a reply (threading
+ * headers set), or a draft.
+ */
+export interface Outgoing {
+    "accountId": string;
+    "to": string[] | null;
+    "cc": string[] | null;
+    "bcc": string[] | null;
+    "subject": string;
+    "textBody": string;
+
+    /**
+     * "<id>" header of the replied-to message
+     */
+    "inReplyTo": string;
+
+    /**
+     * space-joined "<id>" chain
+     */
+    "references": string;
+    "attachmentPaths": string[] | null;
+
+    /**
+     * Local id of the message being answered; gets \Answered on success.
+     */
+    "replyToMessageId": number;
+}
+
+/**
  * SyncStatus reports per-account engine state: "syncing", "idle" or "error".
  */
 export interface SyncStatus {

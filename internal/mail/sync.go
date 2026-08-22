@@ -41,6 +41,7 @@ type Engine struct {
 	Events   Emitter
 	Password func(accountID string) (string, error)
 	Dial     DialFunc
+	SMTPDial SMTPDialFunc
 
 	PollInterval   time.Duration
 	BackfillWindow time.Duration

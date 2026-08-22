@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 const messageColumns = `
@@ -198,7 +199,8 @@ func (s *Store) GetMessage(ctx context.Context, id int64) (Message, error) {
 	return m, err
 }
 
-// ListMessages returns a page of the newest-first message list for the filter.
+// ListMessages returns a page of the newest-first message list for the
+// filter. Snoozed messages stay hidden until their wake time passes.
 func (s *Store) ListMessages(ctx context.Context, f ListFilter) ([]Message, error) {
 	if f.Limit <= 0 {
 		f.Limit = 50
@@ -210,8 +212,8 @@ func (s *Store) ListMessages(ctx context.Context, f ListFilter) ([]Message, erro
 
 	query := `SELECT ` + messageColumns + `
 		FROM messages m JOIN folders fo ON fo.id = m.folder_id
-		WHERE fo.role = ?`
-	args := []any{role}
+		WHERE fo.role = ? AND m.snoozed_until <= ?`
+	args := []any{role, time.Now().Unix()}
 	if f.AccountID != "" {
 		query += ` AND m.account_id = ?`
 		args = append(args, f.AccountID)
@@ -220,6 +222,43 @@ func (s *Store) ListMessages(ctx context.Context, f ListFilter) ([]Message, erro
 	args = append(args, f.Limit, f.Offset)
 
 	return s.queryMessages(ctx, query, args...)
+}
+
+// SnoozeMessage hides a message from lists until the wake time (0 unsnoozes).
+func (s *Store) SnoozeMessage(ctx context.Context, id int64, until int64) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE messages SET snoozed_until = ? WHERE id = ?`, until, id)
+	return err
+}
+
+// UnreadIDs lists the unread message ids matching the filter (mark-all-read).
+func (s *Store) UnreadIDs(ctx context.Context, f ListFilter) ([]int64, error) {
+	role := f.FolderRole
+	if role == "" {
+		role = RoleInbox
+	}
+	query := `SELECT m.id FROM messages m JOIN folders fo ON fo.id = m.folder_id
+		WHERE fo.role = ? AND m.is_unread = 1`
+	args := []any{role}
+	if f.AccountID != "" {
+		query += ` AND m.account_id = ?`
+		args = append(args, f.AccountID)
+	}
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 // GetThread returns every message in a thread, oldest first (reading order).

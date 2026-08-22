@@ -3,5 +3,6 @@
 
 export type {
     MailChanged,
+    Outgoing,
     SyncStatus
 } from "./models.js";

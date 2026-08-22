@@ -15,6 +15,13 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // @ts-ignore: Unused imports
 import * as store$0 from "./internal/store/models.js";
 
+/**
+ * Archive moves a message into the account's archive folder on the server.
+ */
+export function Archive(messageID: number): $CancellablePromise<void> {
+    return $Call.ByID(1112366144, messageID);
+}
+
 export function GetMessageBody(messageID: number): $CancellablePromise<store$0.MessageBody> {
     return $Call.ByID(548725893, messageID);
 }
@@ -32,6 +39,14 @@ export function ListMessages(filter: store$0.ListFilter): $CancellablePromise<st
 }
 
 /**
+ * MarkAllRead clears unread across the current view, pushing \Seen flags in
+ * the background.
+ */
+export function MarkAllRead(filter: store$0.ListFilter): $CancellablePromise<void> {
+    return $Call.ByID(1532381470, filter);
+}
+
+/**
  * MarkRead applies locally at once (snappy UI) and pushes the \Seen flag to
  * the server in the background; the next reconcile heals any failed push.
  */
@@ -45,6 +60,27 @@ export function MarkRead(messageID: number, read: boolean): $CancellablePromise<
  */
 export function SaveAttachment(attachmentID: number): $CancellablePromise<string> {
     return $Call.ByID(1079976658, attachmentID);
+}
+
+/**
+ * SetStarred applies locally at once and pushes \Flagged in the background.
+ */
+export function SetStarred(messageID: number, starred: boolean): $CancellablePromise<void> {
+    return $Call.ByID(2135105713, messageID, starred);
+}
+
+/**
+ * Snooze hides a message from lists until the wake time (local-only).
+ */
+export function Snooze(messageID: number, until: number): $CancellablePromise<void> {
+    return $Call.ByID(1864749776, messageID, until);
+}
+
+/**
+ * Trash moves a message into the account's trash folder on the server.
+ */
+export function Trash(messageID: number): $CancellablePromise<void> {
+    return $Call.ByID(2569072960, messageID);
 }
 
 export function UnreadCounts(): $CancellablePromise<{ [_ in string]?: number } | null> {

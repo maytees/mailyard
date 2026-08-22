@@ -79,6 +79,79 @@ func (m *MailService) MarkRead(ctx context.Context, messageID int64, read bool) 
 	return nil
 }
 
+// Archive moves a message into the account's archive folder on the server.
+func (m *MailService) Archive(ctx context.Context, messageID int64) error {
+	engine := m.sync.engineHandle()
+	if engine == nil {
+		return fmt.Errorf("mail engine is not running yet")
+	}
+	return engine.MoveMessageToRole(ctx, messageID, store.RoleArchive)
+}
+
+// Trash moves a message into the account's trash folder on the server.
+func (m *MailService) Trash(ctx context.Context, messageID int64) error {
+	engine := m.sync.engineHandle()
+	if engine == nil {
+		return fmt.Errorf("mail engine is not running yet")
+	}
+	return engine.MoveMessageToRole(ctx, messageID, store.RoleTrash)
+}
+
+// SetStarred applies locally at once and pushes \Flagged in the background.
+func (m *MailService) SetStarred(ctx context.Context, messageID int64, starred bool) error {
+	st, err := m.st()
+	if err != nil {
+		return err
+	}
+	if err := st.SetStarred(ctx, []int64{messageID}, starred); err != nil {
+		return err
+	}
+	if engine := m.sync.engineHandle(); engine != nil {
+		go func() {
+			if err := engine.SetMessageFlag(context.Background(), messageID, imap.FlagFlagged, starred); err != nil {
+				log.Printf("star push failed: %v", err)
+			}
+		}()
+	}
+	return nil
+}
+
+// Snooze hides a message from lists until the wake time (local-only).
+func (m *MailService) Snooze(ctx context.Context, messageID int64, until int64) error {
+	st, err := m.st()
+	if err != nil {
+		return err
+	}
+	return st.SnoozeMessage(ctx, messageID, until)
+}
+
+// MarkAllRead clears unread across the current view, pushing \Seen flags in
+// the background.
+func (m *MailService) MarkAllRead(ctx context.Context, filter store.ListFilter) error {
+	st, err := m.st()
+	if err != nil {
+		return err
+	}
+	ids, err := st.UnreadIDs(ctx, filter)
+	if err != nil || len(ids) == 0 {
+		return err
+	}
+	if err := st.SetUnread(ctx, ids, false); err != nil {
+		return err
+	}
+	if engine := m.sync.engineHandle(); engine != nil {
+		go func() {
+			for _, id := range ids {
+				if err := engine.SetMessageFlag(context.Background(), id, imap.FlagSeen, true); err != nil {
+					log.Printf("mark all read push failed: %v", err)
+					return
+				}
+			}
+		}()
+	}
+	return nil
+}
+
 func (m *MailService) ListAttachments(ctx context.Context, messageID int64) ([]store.Attachment, error) {
 	st, err := m.st()
 	if err != nil {
