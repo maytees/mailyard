@@ -1,7 +1,9 @@
 // File is mostly written by claude
+import { refreshMailList, refreshUnreadCounts, setFolderRole } from "@/stores/mail"
 import { useSettingsStore } from "@/stores/settings"
 import { useThemeStore } from "@/stores/theme"
 import { useUIStore } from "@/stores/ui"
+import * as SyncService from "~/bindings/mailyard/syncservice"
 import {
 	AiBrain01Icon,
 	AiEditingIcon,
@@ -80,12 +82,13 @@ export const commands: AppCommand[] = [
 	{ id: "flag", label: "Flag email", icon: Flag02Icon, group: "Mail actions" },
 	{ id: "print", label: "Print email", icon: PrinterIcon, shortcut: "mod+p", group: "Mail actions" },
 
-	// Navigation — dummies.
-	{ id: "go-inbox", label: "Go to Inbox", icon: InboxIcon, shortcut: "g+i", group: "Navigation" },
-	{ id: "go-drafts", label: "Go to Drafts", icon: MailEditIcon, shortcut: "g+d", group: "Navigation" },
-	{ id: "go-sent", label: "Go to Sent", icon: SentIcon, shortcut: "g+s", group: "Navigation" },
-	{ id: "go-archive", label: "Go to Archive", icon: Archive02Icon, shortcut: "g+a", group: "Navigation" },
-	{ id: "go-trash", label: "Go to Trash", icon: Delete01Icon, shortcut: "g+t", group: "Navigation" },
+	// Navigation — folder switching. The g-sequences bind once the sequence
+	// engine lands (Phase 7); running from the palette works today.
+	{ id: "go-inbox", label: "Go to Inbox", icon: InboxIcon, shortcut: "g+i", group: "Navigation", run: () => setFolderRole("inbox") },
+	{ id: "go-drafts", label: "Go to Drafts", icon: MailEditIcon, shortcut: "g+d", group: "Navigation", run: () => setFolderRole("drafts") },
+	{ id: "go-sent", label: "Go to Sent", icon: SentIcon, shortcut: "g+s", group: "Navigation", run: () => setFolderRole("sent") },
+	{ id: "go-archive", label: "Go to Archive", icon: Archive02Icon, shortcut: "g+a", group: "Navigation", run: () => setFolderRole("archive") },
+	{ id: "go-trash", label: "Go to Trash", icon: Delete01Icon, shortcut: "g+t", group: "Navigation", run: () => setFolderRole("trash") },
 
 	// App — functional.
 	{
@@ -107,7 +110,17 @@ export const commands: AppCommand[] = [
 		group: "App",
 		run: () => useSettingsStore.getState().toggleCompact(),
 	},
-	{ id: "sync", label: "Sync all mailboxes", icon: RefreshIcon, group: "App" },
+	{
+		id: "sync",
+		label: "Sync all mailboxes",
+		icon: RefreshIcon,
+		group: "App",
+		run: () => {
+			SyncService.SyncNow()
+				.then(() => Promise.all([refreshMailList(), refreshUnreadCounts()]))
+				.catch((error: unknown) => console.error("sync failed", error))
+		},
+	},
 	{
 		id: "add-mailbox",
 		label: "Add mailbox",

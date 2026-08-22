@@ -4,6 +4,7 @@ import { useHotkeys } from "react-hotkeys-hook"
 
 import { CommandPaletteContext } from "@/hooks/use-command-palette"
 import { useAccountsStore } from "@/stores/accounts"
+import { setAccountFilter } from "@/stores/mail"
 import {
 	Command,
 	CommandDialog,
@@ -173,7 +174,7 @@ function CommandPalette({
 								<CommandItem
 									key={account.id}
 									value={`Go to ${account.displayName} ${account.email}`}
-									onSelect={() => run()}
+									onSelect={() => run(() => setAccountFilter(account.id))}
 								>
 									<MailboxDot color={account.color} />
 									<span>

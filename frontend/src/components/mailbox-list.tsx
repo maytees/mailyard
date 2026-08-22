@@ -3,22 +3,20 @@ import { HugeiconsIcon } from "@hugeicons/react"
 
 import {
 	SidebarMenu,
+	SidebarMenuBadge,
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import type { MailboxColor } from "@/lib/mailbox-colors"
 import { useAccountsStore } from "@/stores/accounts"
+import { setAccountFilter, useMailStore } from "@/stores/mail"
 import { useUIStore } from "@/stores/ui"
-import type { Account } from "~/bindings/mailyard/internal/store/models"
 import { KbdShortcut } from "./ui/kbd"
 
-interface MailboxListProps {
-	activeId?: string
-	onSelect?: (account: Account) => void
-}
-
-export function MailboxList({ activeId, onSelect }: MailboxListProps) {
+export function MailboxList() {
 	const accounts = useAccountsStore((s) => s.accounts)
+	const activeId = useMailStore((s) => s.accountFilter)
+	const unreadCounts = useMailStore((s) => s.unreadCounts)
 	const openAddMailbox = useUIStore((s) => s.setAddMailboxOpen)
 
 	return (
@@ -39,7 +37,7 @@ export function MailboxList({ activeId, onSelect }: MailboxListProps) {
 						size="default"
 						className="rounded-lg"
 						isActive={account.id === activeId}
-						onClick={() => onSelect?.(account)}
+						onClick={() => setAccountFilter(account.id)}
 					>
 						<span className="text-sm font-semibold font-heading">
 							{(account.displayName || account.email)
@@ -47,6 +45,11 @@ export function MailboxList({ activeId, onSelect }: MailboxListProps) {
 								.toUpperCase()}
 						</span>
 					</SidebarMenuButton>
+					{(unreadCounts[account.id] ?? 0) > 0 && (
+						<SidebarMenuBadge className="rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+							{Math.min(unreadCounts[account.id], 99)}
+						</SidebarMenuBadge>
+					)}
 				</SidebarMenuItem>
 			))}
 			<SidebarMenuItem>

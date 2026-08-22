@@ -11,26 +11,59 @@ import {
 } from "@/components/ui/input-group";
 import { KbdShortcut } from "@/components/ui/kbd";
 import { formatShortcut } from "@/lib/keyboard";
-import { useMailStore } from "@/stores/mail";
+import { useAccountsStore } from "@/stores/accounts";
+import { setActiveMessage, useMailStore } from "@/stores/mail";
 import { useSettingsStore } from "@/stores/settings";
 
-/** Account summary + density toggle + the search trigger. */
+const FOLDER_LABELS: Record<string, string> = {
+	inbox: "Inbox",
+	drafts: "Drafts",
+	sent: "Sent",
+	archive: "Archive",
+	trash: "Trash",
+	spam: "Spam",
+};
+
+/** View title + unread count + density toggle + the search trigger. */
 function MailPaneHeader() {
 	const { setOpen } = useCommandPalette();
 	const compact = useSettingsStore((s) => s.compact);
 	const toggleCompact = useSettingsStore((s) => s.toggleCompact);
+	const accountFilter = useMailStore((s) => s.accountFilter);
+	const folderRole = useMailStore((s) => s.folderRole);
+	const unreadCounts = useMailStore((s) => s.unreadCounts);
+	const accounts = useAccountsStore((s) => s.accounts);
+
+	const account = accounts.find((a) => a.id === accountFilter);
+	const title = account ? account.displayName : "All accounts";
+	const folderLabel = FOLDER_LABELS[folderRole] ?? folderRole;
+	const unread = account
+		? (unreadCounts[account.id] ?? 0)
+		: Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
 
 	return (
 		<div className="flex flex-col justify-between shrink-0 items-start pt-4 border-b pb-4 px-3.5">
 			<div className="flex flex-row w-full pl-0.5 items-center justify-between">
-				<div className="flex flex-row items-center gap-2.5">
-					<h1 className="font-semibold">All accounts</h1>
-					<p className="font-extralight text-xs mt-0.5">3 unread</p>
+				<div className="flex flex-row items-center gap-2.5 min-w-0">
+					<h1 className="font-semibold truncate">
+						{title}
+						{folderRole !== "inbox" && (
+							<span className="text-muted-foreground font-normal">
+								{" "}
+								· {folderLabel}
+							</span>
+						)}
+					</h1>
+					{folderRole === "inbox" && (
+						<p className="font-extralight text-xs mt-0.5 shrink-0">
+							{unread} unread
+						</p>
+					)}
 				</div>
 
 				<Button
 					variant={"outline"}
-					className={"text-muted-foreground"}
+					className={"text-muted-foreground shrink-0"}
 					size={"xs"}
 					onClick={toggleCompact}
 				>
@@ -67,13 +100,14 @@ function MailPaneHeader() {
 
 /** The second sidebar: header + scrollable message list. */
 export function MailPane() {
+	const messages = useMailStore((s) => s.messages);
 	const activeMessageId = useMailStore((s) => s.activeMessageId);
-	const setActiveMessage = useMailStore((s) => s.setActiveMessage);
 
 	return (
 		<div className="flex h-svh bg-secondary max-w-md flex-col border-r">
 			<MailPaneHeader />
 			<MailList
+				messages={messages}
 				activeId={activeMessageId ?? undefined}
 				onSelect={(message) => setActiveMessage(message.id)}
 			/>

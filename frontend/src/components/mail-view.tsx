@@ -12,6 +12,7 @@ import {
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import * as React from "react";
 
+import { HtmlBody } from "@/components/html-body";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,21 +27,22 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-	mailboxColorNames,
-	mockMail,
-	type Attachment,
-	type Message,
-	type MessageBlock,
-	type ThreadEntry,
-} from "@/data/mockMail";
+import { formatBytes, formatFullDate, formatRelativeTime } from "@/lib/format";
+import type { MailboxColor } from "@/lib/mailbox-colors";
 import { cn } from "@/lib/utils";
+import { useAccountsStore } from "@/stores/accounts";
 import { useMailStore } from "@/stores/mail";
+import * as MailService from "~/bindings/mailyard/mailservice";
+import type {
+	Attachment,
+	Message,
+} from "~/bindings/mailyard/internal/store/models";
 
 /** The reading pane: subject header + full thread for the active message. */
 export function MailView() {
+	const messages = useMailStore((s) => s.messages);
 	const activeMessageId = useMailStore((s) => s.activeMessageId);
-	const message = mockMail.messages.find((m) => m.id === activeMessageId);
+	const message = messages.find((m) => m.id === activeMessageId);
 
 	if (!message) {
 		return (
@@ -51,22 +53,50 @@ export function MailView() {
 		);
 	}
 
-	// Keyed by message id so expand/collapse state resets per thread.
-	return <MailThread key={message.id} message={message} />;
+	// Keyed by thread so expand/collapse state resets when switching.
+	return (
+		<MailThread
+			key={`${message.accountId}:${message.threadId}`}
+			message={message}
+		/>
+	);
 }
 
 function MailThread({ message }: { message: Message }) {
-	const account = mockMail.accounts[message.account];
-	// Older entries start collapsed, Gmail-style; the newest stays open.
-	const [expanded, setExpanded] = React.useState<ReadonlySet<number>>(
-		() => new Set([message.thread.length - 1])
+	const accounts = useAccountsStore((s) => s.accounts);
+	const account = accounts.find((a) => a.id === message.accountId);
+
+	const [thread, setThread] = React.useState<Message[]>([message]);
+	const [expandedIds, setExpandedIds] = React.useState<ReadonlySet<number>>(
+		() => new Set([message.id])
 	);
 
-	const toggle = (index: number) =>
-		setExpanded((current) => {
+	React.useEffect(() => {
+		let cancelled = false;
+		MailService.GetThread(message.accountId, message.threadId)
+			.then((entries) => {
+				if (cancelled || !entries || entries.length === 0) return;
+				setThread(entries);
+				// Older entries start collapsed, Gmail-style; the one the user
+				// opened (or the newest) stays open.
+				const opened = entries.some((e) => e.id === message.id)
+					? message.id
+					: entries[entries.length - 1].id;
+				setExpandedIds(new Set([opened]));
+			})
+			.catch(() => {
+				// Thread lookup failing must never blank the reading pane.
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [message.accountId, message.threadId, message.id]);
+
+	const toggle = (id: number) =>
+		setExpandedIds((current) => {
 			const next = new Set(current);
-			if (next.has(index)) next.delete(index);
-			else next.add(index);
+			if (next.has(id)) next.delete(id);
+			else next.add(id);
 			return next;
 		});
 
@@ -75,34 +105,39 @@ function MailThread({ message }: { message: Message }) {
 			<header className="flex shrink-0 flex-row items-start justify-between gap-4 border-b px-6 pt-5 pb-4">
 				<div className="flex min-w-0 flex-col gap-1.5">
 					<h1 className="truncate font-heading text-xl font-semibold">
-						{message.subject}
+						{message.subject || "(no subject)"}
 					</h1>
 					<div className="flex flex-row items-center gap-2 text-xs text-muted-foreground">
-						<Badge color={mailboxColorNames[message.account]} className="h-4.5">
-							{account.name}
-						</Badge>
+						{account && (
+							<Badge color={account.color as MailboxColor} className="h-4.5">
+								{account.displayName}
+							</Badge>
+						)}
 						<span>
-							{message.thread.length}{" "}
-							{message.thread.length === 1 ? "message" : "messages"}
+							{thread.length} {thread.length === 1 ? "message" : "messages"}
 						</span>
 					</div>
 				</div>
 			</header>
 
 			<ScrollArea hideScrollbar className="min-h-0 flex-1">
-				{message.thread.map((entry, index) => (
+				{thread.map((entry, index) => (
 					<ThreadMessage
-						key={index}
+						key={entry.id}
 						entry={entry}
-						accountEmail={account.email}
-						expanded={expanded.has(index)}
-						isLast={index === message.thread.length - 1}
-						onToggle={() => toggle(index)}
+						accountEmail={account?.email ?? ""}
+						expanded={expandedIds.has(entry.id)}
+						isLast={index === thread.length - 1}
+						onToggle={() => toggle(entry.id)}
 					/>
 				))}
 			</ScrollArea>
 		</section>
 	);
+}
+
+function senderName(entry: Message) {
+	return entry.from.name || entry.from.email || "(unknown)";
 }
 
 function ThreadMessage({
@@ -112,7 +147,7 @@ function ThreadMessage({
 	isLast,
 	onToggle,
 }: {
-	entry: ThreadEntry;
+	entry: Message;
 	accountEmail: string;
 	expanded: boolean;
 	isLast: boolean;
@@ -125,13 +160,13 @@ function ThreadMessage({
 				onClick={onToggle}
 				className="flex w-full cursor-pointer flex-row items-center gap-3 border-b px-6 py-3 text-left hover:bg-muted/50"
 			>
-				<SenderAvatar name={entry.sender} size="sm" />
-				<span className="shrink-0 text-sm font-medium">{entry.sender}</span>
+				<SenderAvatar name={senderName(entry)} size="sm" />
+				<span className="shrink-0 text-sm font-medium">{senderName(entry)}</span>
 				<span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-					{entry.snippet ?? blocksPreview(entry.blocks)}
+					{entry.snippet}
 				</span>
 				<span className="shrink-0 text-xs text-muted-foreground">
-					{entry.time}
+					{formatRelativeTime(entry.date)}
 				</span>
 			</button>
 		);
@@ -145,18 +180,18 @@ function ThreadMessage({
 				className="flex cursor-pointer flex-row items-center gap-3"
 				onClick={onToggle}
 			>
-				<SenderAvatar name={entry.sender} />
+				<SenderAvatar name={senderName(entry)} />
 				<div className="min-w-0 flex-1">
 					<div className="flex flex-row items-center justify-between gap-2">
 						<span className="truncate text-sm font-semibold">
-							{entry.sender}
+							{senderName(entry)}
 						</span>
 						<div
 							className="flex shrink-0 flex-row items-center gap-0.5"
 							onClick={(event) => event.stopPropagation()}
 						>
 							<span className="mr-1.5 text-xs text-muted-foreground">
-								{entry.time}
+								{formatRelativeTime(entry.date)}
 							</span>
 							<MessageAction icon={MailReplyIcon} label="Reply" />
 							<MessageAction icon={MailReplyAllIcon} label="Reply all" />
@@ -169,16 +204,60 @@ function ThreadMessage({
 				</div>
 			</div>
 
-			<div className="mt-4 space-y-3 text-sm leading-relaxed">
-				{entry.blocks.map((block, i) => (
-					<Block key={i} block={block} />
-				))}
+			<div className="mt-4">
+				<MessageBody messageId={entry.id} />
 			</div>
 
-			{entry.attachments.length > 0 && (
-				<AttachmentList attachments={entry.attachments} />
-			)}
+			{entry.hasAttachments && <MessageAttachments messageId={entry.id} />}
 		</article>
+	);
+}
+
+/** Lazily fetches and renders one message's body (HTML preferred). */
+function MessageBody({ messageId }: { messageId: number }) {
+	const [body, setBody] = React.useState<{
+		html: string;
+		text: string;
+	} | null>(null);
+
+	React.useEffect(() => {
+		let cancelled = false;
+		MailService.GetMessageBody(messageId)
+			.then((result) => {
+				if (!cancelled) {
+					setBody({ html: result.htmlSanitized, text: result.textBody });
+				}
+			})
+			.catch(() => {
+				if (!cancelled) setBody({ html: "", text: "" });
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [messageId]);
+
+	if (body === null) {
+		return (
+			<div className="space-y-2">
+				<div className="h-3 w-3/4 animate-pulse rounded bg-muted" />
+				<div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
+			</div>
+		);
+	}
+	if (body.html) {
+		return <HtmlBody html={body.html} />;
+	}
+	if (body.text) {
+		return (
+			<div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+				{body.text}
+			</div>
+		);
+	}
+	return (
+		<p className="text-sm text-muted-foreground italic">
+			This message has no cached body yet.
+		</p>
 	);
 }
 
@@ -208,11 +287,16 @@ function RecipientsPopover({
 	entry,
 	accountEmail,
 }: {
-	entry: ThreadEntry;
+	entry: Message;
 	accountEmail: string;
 }) {
-	const to = entry.to ?? [accountEmail];
-	const isSelf = entry.email === accountEmail;
+	const to = entry.to ?? [];
+	const cc = entry.cc ?? [];
+	const isSelf = entry.from.email === accountEmail;
+	const toEmails = to.map((a) => a.email);
+	const toLabel = toEmails.includes(accountEmail)
+		? "you"
+		: (toEmails[0] ?? "…");
 
 	return (
 		<HoverCard>
@@ -226,8 +310,7 @@ function RecipientsPopover({
 					/>
 				}
 			>
-				{isSelf ? "you" : entry.email} · to{" "}
-				{to.includes(accountEmail) ? "you" : to[0]}
+				{isSelf ? "you" : entry.from.email} · to {toLabel}
 				<HugeiconsIcon
 					icon={ArrowDown01Icon}
 					className="size-3 transition-transform group-data-popup-open/recipients:rotate-180"
@@ -238,24 +321,30 @@ function RecipientsPopover({
 				className="flex w-fit max-w-sm flex-col gap-2 text-xs"
 			>
 				<EnvelopeRow label="from">
-					{entry.sender}{" "}
-					<span className="text-muted-foreground">&lt;{entry.email}&gt;</span>
+					{senderName(entry)}{" "}
+					<span className="text-muted-foreground">
+						&lt;{entry.from.email}&gt;
+					</span>
 				</EnvelopeRow>
-				<EnvelopeRow label="to">
-					{to.map((address) => (
-						<div key={address}>
-							{address === accountEmail ? `you <${address}>` : address}
-						</div>
-					))}
-				</EnvelopeRow>
-				{entry.cc && entry.cc.length > 0 && (
-					<EnvelopeRow label="cc">
-						{entry.cc.map((address) => (
-							<div key={address}>{address}</div>
+				{to.length > 0 && (
+					<EnvelopeRow label="to">
+						{to.map((address) => (
+							<div key={address.email}>
+								{address.email === accountEmail
+									? `you <${address.email}>`
+									: address.email}
+							</div>
 						))}
 					</EnvelopeRow>
 				)}
-				<EnvelopeRow label="date">{entry.time}</EnvelopeRow>
+				{cc.length > 0 && (
+					<EnvelopeRow label="cc">
+						{cc.map((address) => (
+							<div key={address.email}>{address.email}</div>
+						))}
+					</EnvelopeRow>
+				)}
+				<EnvelopeRow label="date">{formatFullDate(entry.date)}</EnvelopeRow>
 			</HoverCardContent>
 		</HoverCard>
 	);
@@ -298,56 +387,25 @@ function initials(name: string) {
 		.join("");
 }
 
-function blocksPreview(blocks: MessageBlock[]) {
-	return blocks.find((b) => b.type === "paragraph" && b.text)?.text ?? "";
-}
-
-// ---- body blocks -----------------------------------------------------------
-
-function Block({ block }: { block: MessageBlock }) {
-	switch (block.type) {
-		case "paragraph":
-			return (
-				<p>
-					{block.lead && <span className="font-semibold">{block.lead}</span>}
-					{block.text}
-				</p>
-			);
-		case "list":
-			return (
-				<ul className="list-disc space-y-1 pl-5">
-					{block.items?.map((item, i) => <li key={i}>{item}</li>)}
-				</ul>
-			);
-		case "quote":
-			return (
-				<blockquote className="border-l-2 border-border pl-3 text-muted-foreground italic">
-					{block.text}
-				</blockquote>
-			);
-		case "image":
-			return (
-				<figure className="space-y-1.5">
-					{/* Placeholder frame until real inline images exist. */}
-					<div className="flex h-40 items-center justify-center rounded-2xl border bg-muted/30">
-						<HugeiconsIcon
-							icon={Image01Icon}
-							className="size-8 text-muted-foreground/50"
-						/>
-					</div>
-					{block.caption && (
-						<figcaption className="text-xs text-muted-foreground">
-							{block.caption}
-						</figcaption>
-					)}
-				</figure>
-			);
-	}
-}
-
 // ---- attachments -----------------------------------------------------------
 
-function AttachmentList({ attachments }: { attachments: Attachment[] }) {
+function MessageAttachments({ messageId }: { messageId: number }) {
+	const [attachments, setAttachments] = React.useState<Attachment[]>([]);
+
+	React.useEffect(() => {
+		let cancelled = false;
+		MailService.ListAttachments(messageId)
+			.then((list) => {
+				if (!cancelled) setAttachments(list ?? []);
+			})
+			.catch(() => {});
+		return () => {
+			cancelled = true;
+		};
+	}, [messageId]);
+
+	if (attachments.length === 0) return null;
+
 	return (
 		<div className="mt-5">
 			<div className="mb-2 flex flex-row items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -357,7 +415,7 @@ function AttachmentList({ attachments }: { attachments: Attachment[] }) {
 			</div>
 			<div className="flex flex-row flex-wrap gap-2">
 				{attachments.map((attachment) => (
-					<AttachmentCard key={attachment.name} attachment={attachment} />
+					<AttachmentCard key={attachment.id} attachment={attachment} />
 				))}
 			</div>
 		</div>
@@ -365,18 +423,32 @@ function AttachmentList({ attachments }: { attachments: Attachment[] }) {
 }
 
 function AttachmentCard({ attachment }: { attachment: Attachment }) {
+	const [saving, setSaving] = React.useState(false);
+	const isImage = attachment.mimeType.startsWith("image/");
+
+	const save = async () => {
+		setSaving(true);
+		try {
+			await MailService.SaveAttachment(attachment.id);
+		} catch (error) {
+			console.error("save attachment failed", error);
+		} finally {
+			setSaving(false);
+		}
+	};
+
 	return (
 		<div className="group/attachment flex flex-row items-center gap-2.5 rounded-2xl border bg-background py-2 pr-1.5 pl-3">
 			<HugeiconsIcon
-				icon={attachment.kind === "image" ? Image01Icon : File01Icon}
+				icon={isImage ? Image01Icon : File01Icon}
 				className="size-4 shrink-0 text-muted-foreground"
 			/>
 			<div className="flex flex-col">
 				<span className="max-w-48 truncate text-xs font-medium">
-					{attachment.name}
+					{attachment.filename}
 				</span>
 				<span className="text-[11px] text-muted-foreground">
-					{attachment.ext} · {attachment.size}
+					{formatBytes(attachment.size)}
 				</span>
 			</div>
 			<Tooltip>
@@ -385,14 +457,16 @@ function AttachmentCard({ attachment }: { attachment: Attachment }) {
 						<Button
 							variant="ghost"
 							size="icon-xs"
-							aria-label={`Download ${attachment.name}`}
+							aria-label={`Save ${attachment.filename}`}
+							disabled={saving}
 							className="opacity-0 transition-opacity group-hover/attachment:opacity-100"
-						>
-							<HugeiconsIcon icon={Download01Icon} />
-						</Button>
+							onClick={() => void save()}
+						/>
 					}
-				/>
-				<TooltipContent>Download</TooltipContent>
+				>
+					<HugeiconsIcon icon={Download01Icon} />
+				</TooltipTrigger>
+				<TooltipContent>Save</TooltipContent>
 			</Tooltip>
 		</div>
 	);

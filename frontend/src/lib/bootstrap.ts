@@ -4,6 +4,7 @@
 import { Events } from "@wailsio/runtime"
 
 import { initAccountsStore } from "@/stores/accounts"
+import { initMailStore } from "@/stores/mail"
 import { useSettingsStore } from "@/stores/settings"
 import { initWindowStore } from "@/stores/window"
 import { IsBackendReady } from "~/bindings/mailyard/bootservice"
@@ -61,8 +62,8 @@ const gates: BootGate[] = [
 	},
 	// Accounts hydrate from the local DB so the rail renders on first paint.
 	{ name: "accounts", check: () => initAccountsStore() },
-	// Future gates, e.g.:
-	// { name: "cache", check: loadCachedInbox },  // local SQLite mail
+	// Cached mail loads before reveal — the inbox is never blank on open.
+	{ name: "mail", check: () => initMailStore() },
 ]
 
 function delay(ms: number) {

@@ -1,15 +1,142 @@
-import { create } from "zustand";
+// The live mail store: pages of real messages from the Go backend, the
+// active selection, and the account/folder filters. Refreshes on the sync
+// engine's mail:changed events.
+import { create } from "zustand"
+import { Events } from "@wailsio/runtime"
 
-import { mockMail } from "@/data/mockMail";
+import * as MailService from "~/bindings/mailyard/mailservice"
+import type { Message } from "~/bindings/mailyard/internal/store/models"
+
+const PAGE_SIZE = 50
 
 interface MailState {
-	/** Currently open message (thread) id; null shows the empty reading pane. */
-	activeMessageId: string | null;
-	setActiveMessage: (id: string | null) => void;
+	messages: Message[]
+	activeMessageId: number | null
+	/** "" = unified view across all accounts. */
+	accountFilter: string
+	folderRole: string
+	/** Per-account unread inbox counts (rail badges + header). */
+	unreadCounts: Record<string, number>
+	loading: boolean
+	hasMore: boolean
 }
 
-export const useMailStore = create<MailState>()((set) => ({
-	// Default to the newest message so the reading pane isn't empty on boot.
-	activeMessageId: mockMail.messages[0]?.id ?? null,
-	setActiveMessage: (id) => set({ activeMessageId: id }),
-}));
+export const useMailStore = create<MailState>(() => ({
+	messages: [],
+	activeMessageId: null,
+	accountFilter: "",
+	folderRole: "inbox",
+	unreadCounts: {},
+	loading: false,
+	hasMore: false,
+}))
+
+function currentFilter(offset: number) {
+	const { accountFilter, folderRole } = useMailStore.getState()
+	return {
+		accountId: accountFilter,
+		folderRole,
+		limit: PAGE_SIZE,
+		offset,
+	}
+}
+
+/** Reloads page one of the current view, keeping the selection when it survives. */
+export async function refreshMailList() {
+	useMailStore.setState({ loading: true })
+	try {
+		const messages = (await MailService.ListMessages(currentFilter(0))) ?? []
+		const { activeMessageId } = useMailStore.getState()
+		const stillThere = messages.some((m) => m.id === activeMessageId)
+		useMailStore.setState({
+			messages,
+			hasMore: messages.length === PAGE_SIZE,
+			activeMessageId: stillThere ? activeMessageId : (messages[0]?.id ?? null),
+		})
+	} finally {
+		useMailStore.setState({ loading: false })
+	}
+}
+
+export async function loadMoreMessages() {
+	const { loading, hasMore, messages } = useMailStore.getState()
+	if (loading || !hasMore) return
+	useMailStore.setState({ loading: true })
+	try {
+		const next =
+			(await MailService.ListMessages(currentFilter(messages.length))) ?? []
+		const seen = new Set(messages.map((m) => m.id))
+		useMailStore.setState({
+			messages: [...messages, ...next.filter((m) => !seen.has(m.id))],
+			hasMore: next.length === PAGE_SIZE,
+		})
+	} finally {
+		useMailStore.setState({ loading: false })
+	}
+}
+
+export async function refreshUnreadCounts() {
+	const counts = (await MailService.UnreadCounts()) ?? {}
+	useMailStore.setState({ unreadCounts: counts })
+}
+
+/** Selects a message and marks it read (optimistically; Go pushes \Seen). */
+export function setActiveMessage(id: number | null) {
+	useMailStore.setState({ activeMessageId: id })
+	if (id == null) return
+
+	const { messages } = useMailStore.getState()
+	const message = messages.find((m) => m.id === id)
+	if (!message || !message.unread) return
+
+	useMailStore.setState((s) => {
+		const counts: Record<string, number> = { ...s.unreadCounts }
+		counts[message.accountId] = Math.max(0, (counts[message.accountId] ?? 1) - 1)
+		return {
+			messages: s.messages.map((m) =>
+				m.id === id ? { ...m, unread: false } : m
+			),
+			unreadCounts: counts,
+		}
+	})
+	MailService.MarkRead(id, true).catch((error: unknown) =>
+		console.error("mark read failed", error)
+	)
+}
+
+/** Toggle-style account filter: selecting the active account clears it. */
+export function setAccountFilter(accountId: string) {
+	const current = useMailStore.getState().accountFilter
+	useMailStore.setState({
+		accountFilter: current === accountId ? "" : accountId,
+		activeMessageId: null,
+	})
+	void refreshMailList()
+}
+
+export function setFolderRole(role: string) {
+	if (useMailStore.getState().folderRole === role) return
+	useMailStore.setState({ folderRole: role, activeMessageId: null })
+	void refreshMailList()
+}
+
+let initialized = false
+let refreshTimer: ReturnType<typeof setTimeout> | null = null
+
+export async function initMailStore() {
+	if (initialized) return // idempotent
+	initialized = true
+
+	// Sync events arrive in bursts (one per folder); trail-debounce the reload.
+	Events.On("mail:changed", () => {
+		if (refreshTimer) clearTimeout(refreshTimer)
+		refreshTimer = setTimeout(() => {
+			refreshMailList().catch((error: unknown) =>
+				console.error("mail refresh failed", error)
+			)
+			refreshUnreadCounts().catch(() => {})
+		}, 300)
+	})
+
+	await Promise.all([refreshMailList(), refreshUnreadCounts()])
+}
