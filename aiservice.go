@@ -73,6 +73,14 @@ func (a *AIService) DraftReply(ctx context.Context, accountID, threadID string) 
 	return service.DraftReply(ctx, accountID, threadID)
 }
 
+func (a *AIService) ComposeInstructed(ctx context.Context, accountID string, replyToMessageID int64, instructions string) (string, error) {
+	service, err := a.svc()
+	if err != nil {
+		return "", err
+	}
+	return service.ComposeInstructed(ctx, accountID, replyToMessageID, instructions)
+}
+
 func (a *AIService) Rewrite(ctx context.Context, text, tone string) (string, error) {
 	service, err := a.svc()
 	if err != nil {

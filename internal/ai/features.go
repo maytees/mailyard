@@ -96,6 +96,50 @@ func (s *Service) DraftReply(ctx context.Context, accountID, threadID string) (s
 	)
 }
 
+// ComposeInstructed streams an email body written strictly from the user's
+// instructions. replyToMessageID (0 for fresh mail) pulls in the thread as
+// context so replies reference the right things — but the instructions alone
+// decide what the email says.
+func (s *Service) ComposeInstructed(ctx context.Context, accountID string, replyToMessageID int64, instructions string) (string, error) {
+	account, err := s.Store.GetAccount(ctx, accountID)
+	if err != nil {
+		return "", err
+	}
+	firstName := account.DisplayName
+	if fields := strings.Fields(firstName); len(fields) > 0 {
+		firstName = fields[0]
+	}
+
+	threadContext := ""
+	if replyToMessageID != 0 {
+		if message, err := s.Store.GetMessage(ctx, replyToMessageID); err == nil {
+			if text, err := s.threadText(ctx, message.AccountID, message.ThreadID); err == nil {
+				threadContext = text
+			}
+		}
+	}
+
+	system := fmt.Sprintf(
+		"You write emails on behalf of %s <%s>. The user's instructions define "+
+			"WHAT the email says — write exactly that and nothing more. Rules:\n"+
+			"- Never add extra points, offers, pleasantries, questions, or invented "+
+			"details beyond the instructions.\n"+
+			"- The email's length mirrors the instructions: a one-line instruction "+
+			"means a one-or-two-sentence email.\n"+
+			"- The only additions allowed are a natural greeting and a brief "+
+			"sign-off ending with \"%s\".\n"+
+			"- Plain text only: no subject line, no markdown, no commentary.\n"+
+			"- When a thread is provided, use it only for context (names, tone, "+
+			"what's being referred to) — the instructions still decide the content.",
+		account.DisplayName, account.Email, firstName)
+
+	prompt := "Instructions from the sender:\n" + instructions
+	if threadContext != "" {
+		prompt += "\n\nThe thread being replied to (context only):\n" + threadContext
+	}
+	return s.streamRequest(system, prompt, 500, nil)
+}
+
 // Rewrite streams a reworked version of draft text in the requested tone.
 func (s *Service) Rewrite(text, tone string) (string, error) {
 	return s.streamRequest(

@@ -22,6 +22,10 @@ export function ActionItems(accountID: string, threadID: string): $CancellablePr
     return $Call.ByID(1532129271, accountID, threadID);
 }
 
+export function ComposeInstructed(accountID: string, replyToMessageID: number, instructions: string): $CancellablePromise<string> {
+    return $Call.ByID(417289150, accountID, replyToMessageID, instructions);
+}
+
 export function DraftReply(accountID: string, threadID: string): $CancellablePromise<string> {
     return $Call.ByID(2892712478, accountID, threadID);
 }

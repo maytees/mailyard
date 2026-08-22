@@ -1,4 +1,5 @@
 import {
+	AiEditingIcon,
 	Attachment01Icon,
 	Cancel01Icon,
 	Delete02Icon,
@@ -22,7 +23,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { formatBytes } from "@/lib/format"
 import { matchesShortcut } from "@/lib/keyboard"
 import { useAccountsStore } from "@/stores/accounts"
-import { rewriteComposeBody } from "@/stores/ai"
+import { composeFromInstructions, rewriteComposeBody } from "@/stores/ai"
 import {
 	closeCompose,
 	discardCompose,
@@ -37,6 +38,13 @@ import {
 export function ComposeSheet() {
 	const state = useComposeStore()
 	const accounts = useAccountsStore((s) => s.accounts)
+	const [aiInstructions, setAiInstructions] = React.useState("")
+
+	const writeWithAI = () => {
+		if (!aiInstructions.trim()) return
+		void composeFromInstructions(aiInstructions)
+		setAiInstructions("")
+	}
 	// Cc/Bcc start revealed only when prefilled; manual reveal sticks for the
 	// session. Keyed on `open` via manual reset in the reveal handler below.
 	const [ccBccRevealed, setCcBccRevealed] = React.useState(false)
@@ -61,7 +69,7 @@ export function ComposeSheet() {
 		>
 			<SheetContent
 				side="right"
-				className="sm:max-w-xl gap-0 p-0"
+				className="sm:max-w-2xl gap-0 p-0"
 				onKeyDown={(event) => {
 					if (matchesShortcut(event, "mod+enter")) {
 						event.preventDefault()
@@ -130,6 +138,40 @@ export function ComposeSheet() {
 							autoFocus={state.mode !== "new"}
 							className="h-7 rounded-none border-none bg-transparent px-0 font-medium focus-visible:ring-0 focus-visible:border-transparent"
 						/>
+					</div>
+
+					{/* AI takes dictation: describe the email, get exactly that. */}
+					<div className="flex flex-row items-center gap-2 border-b py-1">
+						<HugeiconsIcon
+							icon={AiEditingIcon}
+							className="size-4 shrink-0 text-muted-foreground"
+						/>
+						<Input
+							value={aiInstructions}
+							onChange={(e) => setAiInstructions(e.target.value)}
+							onKeyDown={(event) => {
+								if (event.key === "Enter") {
+									event.preventDefault()
+									writeWithAI()
+								}
+							}}
+							placeholder={
+								state.mode === "new"
+									? "Tell AI what to say — e.g. “ask Bob for the budget numbers by Friday”"
+									: "Tell AI what to reply — e.g. “say Friday works, ask who else is coming”"
+							}
+							className="h-7 rounded-none border-none bg-transparent px-0 text-xs focus-visible:ring-0 focus-visible:border-transparent"
+						/>
+						<Button
+							type="button"
+							variant="ghost"
+							size="xs"
+							className="h-6 shrink-0 rounded-full px-2 text-xs text-muted-foreground"
+							disabled={!aiInstructions.trim()}
+							onClick={writeWithAI}
+						>
+							Write
+						</Button>
 					</div>
 
 					<Textarea

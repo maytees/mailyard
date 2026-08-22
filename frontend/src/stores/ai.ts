@@ -190,6 +190,35 @@ export async function draftReplyWithAI(message: Message) {
 	}
 }
 
+/**
+ * Writes the email from the user's instructions, streaming into the compose
+ * body above whatever is already there (quotes, forwarded blocks). Replies
+ * pass their message so the backend can pull thread context.
+ */
+export async function composeFromInstructions(instructions: string) {
+	const compose = useComposeStore.getState()
+	if (!compose.accountId || !instructions.trim()) return
+	const base = compose.body
+	try {
+		const requestId = await AIService.ComposeInstructed(
+			compose.accountId,
+			compose.replyToMessageId,
+			instructions.trim()
+		)
+		let draft = ""
+		handlers.set(requestId, (chunk) => {
+			if (chunk.error) {
+				toast.error(chunk.error)
+				return
+			}
+			draft += chunk.chunk
+			setComposeField("body", base ? `${draft}\n${base}` : draft)
+		})
+	} catch (raw: unknown) {
+		toast.error(raw instanceof Error ? raw.message : String(raw))
+	}
+}
+
 /** Rewrites the current compose body in the requested tone (streaming). */
 export async function rewriteComposeBody(tone: string) {
 	const body = useComposeStore.getState().body
