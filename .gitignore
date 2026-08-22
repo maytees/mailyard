@@ -10,3 +10,6 @@ build/ios/xcode/gen/
 build/android/overlay.json
 build/android/gen/
 .DS_Store
+
+# Compiled app binary
+mailyard

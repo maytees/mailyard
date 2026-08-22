@@ -19,32 +19,22 @@ import (
 var assets embed.FS
 
 func init() {
-	// Register a custom event whose associated data type is string.
-	// This is not required, but the binding generator will pick up registered events
-	// and provide a strongly typed JS/TS API for them.
-	application.RegisterEvent[string]("time")
-
 	// Boot handshake: Go announces backend readiness, the frontend announces
 	// that its boot gates passed (which triggers the splash → main swap).
 	application.RegisterEvent[bool]("backend:ready")
 	application.RegisterEvent[bool]("frontend:ready")
 }
 
-// main function serves as the application's entry point. It initializes the application, creates a window,
-// and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
-// logs any error that might occur.
+// main is the application's entry point: it wires up the Wails app, the
+// splash/main window pair, and the boot handshake, then blocks in app.Run.
 func main() {
 
-	// Create a new Wails application by providing the necessary options.
-	// Variables 'Name' and 'Description' are for application metadata.
-	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
-	// 'Bind' is a list of Go struct instances. The frontend has access to the methods of these instances.
-	// 'Mac' options tailor the application when running an macOS.
+	// 'Services' is the list of Go struct instances whose methods are exposed
+	// to the frontend through generated bindings.
 	app := application.New(application.Options{
 		Name:        "mailyard",
 		Description: "A unified AI inbox.",
 		Services: []application.Service{
-			application.NewService(&GreetService{}),
 			application.NewService(&BootService{}),
 		},
 		Assets: application.AssetOptions{
@@ -119,16 +109,6 @@ func main() {
 	go func() {
 		time.Sleep(10 * time.Second)
 		reveal()
-	}()
-
-	// Create a goroutine that emits an event containing the current time every second.
-	// The frontend can listen to this event and update the UI accordingly.
-	go func() {
-		for {
-			now := time.Now().Format(time.RFC1123)
-			app.Event.Emit("time", now)
-			time.Sleep(time.Second)
-		}
 	}()
 
 	// Run the application. This blocks until the application has been exited.
