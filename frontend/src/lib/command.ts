@@ -1,9 +1,29 @@
 // File is mostly written by claude
-import { refreshMailList, refreshUnreadCounts, setFolderRole } from "@/stores/mail"
+import {
+	archiveActive,
+	markActiveUnread,
+	markAllRead,
+	snoozeActive,
+	toggleStarActive,
+	trashActive,
+} from "@/lib/mail-actions"
+import { composeFromMessage, openCompose } from "@/stores/compose"
+import {
+	refreshMailList,
+	refreshUnreadCounts,
+	setFolderRole,
+	useMailStore,
+} from "@/stores/mail"
 import { useSettingsStore } from "@/stores/settings"
 import { useThemeStore } from "@/stores/theme"
 import { useUIStore } from "@/stores/ui"
 import * as SyncService from "~/bindings/mailyard/syncservice"
+
+/** The message the list currently has selected, if any. */
+function activeMessage() {
+	const { messages, activeMessageId } = useMailStore.getState()
+	return messages.find((m) => m.id === activeMessageId)
+}
 import {
 	AiBrain01Icon,
 	AiEditingIcon,
@@ -69,18 +89,36 @@ export const commands: AppCommand[] = [
 	{ id: "ai-triage", label: "Smart triage inbox", icon: AiBrain01Icon, group: "AI" },
 	{ id: "ai-unsubscribe", label: "Suggest unsubscribes", icon: FilterMailRemoveIcon, group: "AI" },
 
-	// Mail actions — dummies.
-	{ id: "compose", label: "Compose", icon: PencilIcon, shortcut: "alt+c", group: "Mail actions" },
-	{ id: "reply", label: "Reply", icon: MailReplyIcon, shortcut: "r", group: "Mail actions" },
-	{ id: "reply-all", label: "Reply all", icon: MailReplyAllIcon, shortcut: "shift+r", group: "Mail actions" },
-	{ id: "forward", label: "Forward", icon: ForwardIcon, shortcut: "f", group: "Mail actions" },
-	{ id: "archive", label: "Archive email", icon: ArchiveIcon, shortcut: "e", group: "Mail actions" },
-	{ id: "delete", label: "Delete email", icon: Delete02Icon, group: "Mail actions" },
-	{ id: "snooze", label: "Snooze until tomorrow", icon: NotificationSnoozeIcon, shortcut: "h", group: "Mail actions" },
-	{ id: "mark-read", label: "Mark all as read", icon: TickDoubleIcon, shortcut: "shift+i", group: "Mail actions" },
-	{ id: "mark-unread", label: "Mark as unread", icon: InboxUnreadIcon, shortcut: "shift+u", group: "Mail actions" },
-	{ id: "flag", label: "Flag email", icon: Flag02Icon, group: "Mail actions" },
-	{ id: "print", label: "Print email", icon: PrinterIcon, shortcut: "mod+p", group: "Mail actions" },
+	// Mail actions.
+	{ id: "compose", label: "Compose", icon: PencilIcon, shortcut: "alt+c", group: "Mail actions", run: () => openCompose() },
+	{
+		id: "reply", label: "Reply", icon: MailReplyIcon, shortcut: "r", group: "Mail actions",
+		run: () => {
+			const message = activeMessage()
+			if (message) void composeFromMessage(message, "reply")
+		},
+	},
+	{
+		id: "reply-all", label: "Reply all", icon: MailReplyAllIcon, shortcut: "shift+r", group: "Mail actions",
+		run: () => {
+			const message = activeMessage()
+			if (message) void composeFromMessage(message, "reply-all")
+		},
+	},
+	{
+		id: "forward", label: "Forward", icon: ForwardIcon, shortcut: "f", group: "Mail actions",
+		run: () => {
+			const message = activeMessage()
+			if (message) void composeFromMessage(message, "forward")
+		},
+	},
+	{ id: "archive", label: "Archive email", icon: ArchiveIcon, shortcut: "e", group: "Mail actions", run: archiveActive },
+	{ id: "delete", label: "Delete email", icon: Delete02Icon, shortcut: "shift+3", group: "Mail actions", run: trashActive },
+	{ id: "snooze", label: "Snooze until tomorrow", icon: NotificationSnoozeIcon, shortcut: "h", group: "Mail actions", run: snoozeActive },
+	{ id: "mark-read", label: "Mark all as read", icon: TickDoubleIcon, shortcut: "shift+i", group: "Mail actions", run: markAllRead },
+	{ id: "mark-unread", label: "Mark as unread", icon: InboxUnreadIcon, shortcut: "shift+u", group: "Mail actions", run: markActiveUnread },
+	{ id: "flag", label: "Flag email", icon: Flag02Icon, shortcut: "s", group: "Mail actions", run: toggleStarActive },
+	{ id: "print", label: "Print email", icon: PrinterIcon, shortcut: "mod+p", group: "Mail actions", run: () => window.print() },
 
 	// Navigation — folder switching. The g-sequences bind once the sequence
 	// engine lands (Phase 7); running from the palette works today.

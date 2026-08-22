@@ -8,7 +8,9 @@ import { SidebarProvider } from "./components/ui/sidebar.tsx"
 import { AppSidebar } from "./components/app-sidebar.tsx"
 import { AddMailboxDialog } from "./components/add-mailbox-dialog.tsx"
 import { CommandPaletteProvider } from "./components/command-palette.tsx"
+import { ComposeSheet } from "./components/compose-sheet.tsx"
 import { SplashGate } from "./components/splash-screen.tsx"
+import { Toaster } from "./components/ui/sonner.tsx"
 import { initThemeStore } from "./stores/theme.ts"
 import { initializeGlobalHotkeys } from "./lib/global-hotkeys.ts"
 
@@ -29,6 +31,8 @@ createRoot(document.getElementById("root")!).render(
 							<App />
 						</main>
 						<AddMailboxDialog />
+						<ComposeSheet />
+						<Toaster />
 					</SidebarProvider>
 				</CommandPaletteProvider>
 			</TooltipProvider>

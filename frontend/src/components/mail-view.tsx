@@ -31,6 +31,7 @@ import { formatBytes, formatFullDate, formatRelativeTime } from "@/lib/format";
 import type { MailboxColor } from "@/lib/mailbox-colors";
 import { cn } from "@/lib/utils";
 import { useAccountsStore } from "@/stores/accounts";
+import { composeFromMessage, editDraft } from "@/stores/compose";
 import { useMailStore } from "@/stores/mail";
 import * as MailService from "~/bindings/mailyard/mailservice";
 import type {
@@ -65,6 +66,7 @@ export function MailView() {
 function MailThread({ message }: { message: Message }) {
 	const accounts = useAccountsStore((s) => s.accounts);
 	const account = accounts.find((a) => a.id === message.accountId);
+	const folderRole = useMailStore((s) => s.folderRole);
 
 	const [thread, setThread] = React.useState<Message[]>([message]);
 	const [expandedIds, setExpandedIds] = React.useState<ReadonlySet<number>>(
@@ -118,6 +120,16 @@ function MailThread({ message }: { message: Message }) {
 						</span>
 					</div>
 				</div>
+				{folderRole === "drafts" && (
+					<Button
+						variant="outline"
+						size="xs"
+						className="shrink-0"
+						onClick={() => void editDraft(message)}
+					>
+						Edit draft
+					</Button>
+				)}
 			</header>
 
 			<ScrollArea hideScrollbar className="min-h-0 flex-1">
@@ -193,9 +205,21 @@ function ThreadMessage({
 							<span className="mr-1.5 text-xs text-muted-foreground">
 								{formatRelativeTime(entry.date)}
 							</span>
-							<MessageAction icon={MailReplyIcon} label="Reply" />
-							<MessageAction icon={MailReplyAllIcon} label="Reply all" />
-							<MessageAction icon={ForwardIcon} label="Forward" />
+							<MessageAction
+								icon={MailReplyIcon}
+								label="Reply"
+								onClick={() => void composeFromMessage(entry, "reply")}
+							/>
+							<MessageAction
+								icon={MailReplyAllIcon}
+								label="Reply all"
+								onClick={() => void composeFromMessage(entry, "reply-all")}
+							/>
+							<MessageAction
+								icon={ForwardIcon}
+								label="Forward"
+								onClick={() => void composeFromMessage(entry, "forward")}
+							/>
 						</div>
 					</div>
 					<span onClick={(event) => event.stopPropagation()}>
@@ -264,15 +288,22 @@ function MessageBody({ messageId }: { messageId: number }) {
 function MessageAction({
 	icon,
 	label,
+	onClick,
 }: {
 	icon: IconSvgElement;
 	label: string;
+	onClick?: () => void;
 }) {
 	return (
 		<Tooltip>
 			<TooltipTrigger
 				render={
-					<Button variant="ghost" size="icon-sm" aria-label={label}>
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						aria-label={label}
+						onClick={onClick}
+					>
 						<HugeiconsIcon icon={icon} />
 					</Button>
 				}

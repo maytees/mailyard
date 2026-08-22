@@ -16,6 +16,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { KbdShortcut } from "./ui/kbd";
 import { ThemeToggle } from "./theme-toggle";
 import { useWindowStore } from "@/stores/window";
+import { openCompose } from "@/stores/compose";
 import { cn } from "@/lib/utils";
 
 export function AppSidebar() {
@@ -75,6 +76,7 @@ export function AppSidebar() {
 							size={"md"}
 							color="rose"
 							className="rounded-full"
+							onClick={() => openCompose()}
 						>
 							<HugeiconsIcon className="-rotate-35" icon={PencilIcon} />
 						</SidebarMenuButton>
