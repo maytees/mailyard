@@ -85,10 +85,9 @@ function SidebarProvider({
 		[setOpenProp, open]
 	)
 
-	// Helper to toggle the sidebar.
-	const toggleSidebar = () => {
-		return null;
-	}
+	// Helper to toggle the sidebar. Deliberately a no-op: mod+b belongs to the
+	// command registry's density toggle, not the sidebar.
+	const toggleSidebar = React.useCallback(() => null, [])
 
 	// 	React.useCallback(() => {
 	// 	return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open)
@@ -156,7 +155,6 @@ function Sidebar({
 	collapsible = "offcanvas",
 	className,
 	children,
-	dir,
 	...props
 }: React.ComponentProps<"div"> & {
 	side?: "left" | "right"

@@ -1,7 +1,7 @@
 import { SearchIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import { useCommandPalette } from "@/components/command-palette";
+import { useCommandPalette } from "@/hooks/use-command-palette";
 import { MailList } from "@/components/mail-list";
 import { Button } from "@/components/ui/button";
 import {

@@ -2,7 +2,8 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import * as React from "react"
 import { useHotkeys } from "react-hotkeys-hook"
 
-import { mailboxes } from "@/components/mailbox-list"
+import { mailboxes } from "@/data/mailboxes"
+import { CommandPaletteContext } from "@/hooks/use-command-palette"
 import {
 	Command,
 	CommandDialog,
@@ -62,24 +63,6 @@ function Highlight({ text, query }: { text: string; query: string }) {
 	)
 }
 
-type CommandPaletteContextValue = {
-	open: boolean
-	setOpen: (open: boolean) => void
-}
-
-const CommandPaletteContext =
-	React.createContext<CommandPaletteContextValue | null>(null)
-
-export function useCommandPalette() {
-	const context = React.useContext(CommandPaletteContext)
-	if (!context) {
-		throw new Error(
-			"useCommandPalette must be used within a CommandPaletteProvider"
-		)
-	}
-	return context
-}
-
 export function CommandPaletteProvider({
 	children,
 }: {
@@ -111,15 +94,18 @@ function CommandPalette({
 }) {
 	const [query, setQuery] = React.useState("")
 
-	React.useEffect(() => {
-		if (!open) {
+	// Reset the query on close (in the handler, not an effect — the dialog
+	// only ever closes through here).
+	const handleOpenChange = (next: boolean) => {
+		if (!next) {
 			setQuery("")
 		}
-	}, [open])
+		onOpenChange(next)
+	}
 
 	// Close first so the palette feels instant, then run the action.
 	const run = (action?: () => void) => {
-		onOpenChange(false)
+		handleOpenChange(false)
 		action?.()
 	}
 
@@ -134,7 +120,7 @@ function CommandPalette({
 	return (
 		<CommandDialog
 			open={open}
-			onOpenChange={onOpenChange}
+			onOpenChange={handleOpenChange}
 			title="Search & Commands"
 			description="Search your mail or run a command"
 			className="top-1/2 -translate-y-1/2 sm:max-w-2xl"

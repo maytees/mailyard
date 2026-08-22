@@ -1,58 +1,13 @@
-import {
-	CatIcon,
-	MailIcon,
-	MailPlus,
-	SchoolIcon,
-	YogaMatIcon,
-} from "@hugeicons/core-free-icons"
-import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
+import { MailPlus } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 
 import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import type { MailboxColor } from "@/lib/mailbox-colors"
+import { mailboxes, type Mailbox } from "@/data/mailboxes"
 import { KbdShortcut } from "./ui/kbd"
-
-export interface Mailbox {
-	id: string
-	name: string
-	email: string
-	color: MailboxColor
-	icon: IconSvgElement
-}
-
-export const mailboxes: Mailbox[] = [
-	{
-		id: "personal",
-		name: "Personal",
-		email: "maythamajam@gmail.com",
-		color: "violet",
-		icon: MailIcon,
-	},
-	{
-		id: "personal-2",
-		name: "Personal 2",
-		email: "mateespublicprofile@gmail.com",
-		color: "rose",
-		icon: YogaMatIcon,
-	},
-	{
-		id: "school",
-		name: "School",
-		email: "majam@gmu.edu",
-		color: "blue",
-		icon: SchoolIcon,
-	},
-	{
-		id: "petzio",
-		name: "Petzio",
-		email: "maytham@petzio.app",
-		color: "emerald",
-		icon: CatIcon,
-	},
-]
 
 interface MailboxListProps {
 	items?: Mailbox[]
