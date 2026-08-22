@@ -65,6 +65,7 @@ func (s *SyncService) start() {
 		},
 		PollInterval:   time.Duration(pollMinutes) * time.Minute,
 		BackfillWindow: time.Duration(backfillDays) * 24 * time.Hour,
+		OnNewMail:      notifyNewMail,
 	}
 	s.engine.Start(ctx)
 

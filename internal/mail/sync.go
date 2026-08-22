@@ -47,6 +47,10 @@ type Engine struct {
 	BackfillWindow time.Duration
 	BackfillCap    int
 
+	// OnNewMail fires after an incremental sync lands fresh inbox mail
+	// (never during the initial backfill) — desktop notifications hook here.
+	OnNewMail func(account store.Account, count int, latest store.Message)
+
 	mu      sync.Mutex
 	workers map[string]context.CancelFunc
 	conns   map[string]*actionConn // cached action connections, see actions.go
@@ -332,15 +336,21 @@ func (e *Engine) syncFolder(ctx context.Context, client *imapclient.Client, acco
 		changed = true
 	}
 
+	wasIncremental := folder.UIDNext != 0
+
 	newUIDs, err := e.findNewUIDs(client, folder, sel)
 	if err != nil {
 		return err
 	}
 	if len(newUIDs) > 0 {
-		if err := e.fetchMessages(ctx, client, account, folder, newUIDs); err != nil {
+		inserted, latest, err := e.fetchMessages(ctx, client, account, folder, newUIDs)
+		if err != nil {
 			return err
 		}
 		changed = true
+		if inserted > 0 && wasIncremental && folder.Role == store.RoleInbox && e.OnNewMail != nil {
+			e.OnNewMail(account, inserted, latest)
+		}
 	}
 
 	reconciled, err := e.reconcileFlags(ctx, client, folder)
@@ -408,8 +418,9 @@ func (e *Engine) findNewUIDs(client *imapclient.Client, folder *store.Folder, se
 }
 
 // fetchMessages pulls full raw messages in chunks, parses them, and stores
-// message + body + attachments.
-func (e *Engine) fetchMessages(ctx context.Context, client *imapclient.Client, account store.Account, folder *store.Folder, uids []imap.UID) error {
+// message + body + attachments. Returns how many were newly inserted and the
+// newest of them (for notifications).
+func (e *Engine) fetchMessages(ctx context.Context, client *imapclient.Client, account store.Account, folder *store.Folder, uids []imap.UID) (int, store.Message, error) {
 	section := &imap.FetchItemBodySection{Peek: true}
 	options := &imap.FetchOptions{
 		UID:          true,
@@ -419,27 +430,36 @@ func (e *Engine) fetchMessages(ctx context.Context, client *imapclient.Client, a
 		BodySection:  []*imap.FetchItemBodySection{section},
 	}
 
+	inserted := 0
+	var latest store.Message
 	for start := 0; start < len(uids); start += fetchChunkSize {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return inserted, latest, ctx.Err()
 		}
 		end := min(start+fetchChunkSize, len(uids))
 		chunk := imap.UIDSetNum(uids[start:end]...)
 
 		buffers, err := client.Fetch(chunk, options).Collect()
 		if err != nil {
-			return fmt.Errorf("fetch: %w", err)
+			return inserted, latest, fmt.Errorf("fetch: %w", err)
 		}
 		for _, buf := range buffers {
-			if err := e.storeMessage(ctx, account, folder, buf, section); err != nil {
-				return err
+			message, wasNew, err := e.storeMessage(ctx, account, folder, buf, section)
+			if err != nil {
+				return inserted, latest, err
+			}
+			if wasNew {
+				inserted++
+				if message.Date >= latest.Date {
+					latest = message
+				}
 			}
 		}
 	}
-	return nil
+	return inserted, latest, nil
 }
 
-func (e *Engine) storeMessage(ctx context.Context, account store.Account, folder *store.Folder, buf *imapclient.FetchMessageBuffer, section *imap.FetchItemBodySection) error {
+func (e *Engine) storeMessage(ctx context.Context, account store.Account, folder *store.Folder, buf *imapclient.FetchMessageBuffer, section *imap.FetchItemBodySection) (store.Message, bool, error) {
 	raw := buf.FindBodySection(section)
 
 	message := store.Message{
@@ -475,14 +495,15 @@ func (e *Engine) storeMessage(ctx context.Context, account store.Account, folder
 
 	id, inserted, err := e.Store.UpsertMessage(ctx, message)
 	if err != nil {
-		return err
+		return message, false, err
 	}
+	message.ID = id
 	if !inserted || parsed == nil {
-		return nil
+		return message, inserted, nil
 	}
 
 	if err := e.Store.SetMessageBody(ctx, id, parsed.TextBody, parsed.HTMLSanitized); err != nil {
-		return err
+		return message, true, err
 	}
 	for _, attachment := range parsed.Attachments {
 		if _, err := e.Store.UpsertAttachment(ctx, store.Attachment{
@@ -492,10 +513,10 @@ func (e *Engine) storeMessage(ctx context.Context, account store.Account, folder
 			Size:      int64(len(attachment.Data)),
 			ContentID: attachment.ContentID,
 		}, attachment.Data); err != nil {
-			return err
+			return message, true, err
 		}
 	}
-	return nil
+	return message, true, nil
 }
 
 // reconcileFlags mirrors server-side flag changes and expunges onto local
