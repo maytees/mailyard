@@ -8,6 +8,7 @@ import type { Events } from "@wailsio/runtime";
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
+            "accounts:changed": boolean;
             "backend:ready": boolean;
             "frontend:ready": boolean;
         }

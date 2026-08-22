@@ -23,6 +23,9 @@ func init() {
 	// that its boot gates passed (which triggers the splash → main swap).
 	application.RegisterEvent[bool]("backend:ready")
 	application.RegisterEvent[bool]("frontend:ready")
+
+	// Fired after any account add/update/remove; the frontend refetches.
+	application.RegisterEvent[bool]("accounts:changed")
 }
 
 // main is the application's entry point: it wires up the Wails app, the
@@ -30,12 +33,15 @@ func init() {
 func main() {
 
 	// 'Services' is the list of Go struct instances whose methods are exposed
-	// to the frontend through generated bindings.
+	// to the frontend through generated bindings. They share the store opened
+	// by BootService during startup.
+	boot := &BootService{}
 	app := application.New(application.Options{
 		Name:        "mailyard",
 		Description: "A unified AI inbox.",
 		Services: []application.Service{
-			application.NewService(&BootService{}),
+			application.NewService(boot),
+			application.NewService(&AccountService{boot: boot}),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
