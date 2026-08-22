@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"os"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
@@ -85,4 +88,59 @@ func (b *BootService) storeHandle() *store.Store {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	return b.st
+}
+
+// replaceStore swaps the live database for the file at srcPath (data
+// import). The old database is kept next to the new one as a .backup file.
+// Callers must stop anything holding the store (the sync engine) first.
+func (b *BootService) replaceStore(srcPath string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	dest, err := store.DefaultPath()
+	if err != nil {
+		return err
+	}
+	if b.st != nil {
+		if err := b.st.Close(); err != nil {
+			return fmt.Errorf("close current database: %w", err)
+		}
+		b.st = nil
+	}
+
+	// Keep an escape hatch, then remove WAL leftovers that belong to the old
+	// database.
+	backup := dest + ".backup-" + time.Now().Format("20060102-150405")
+	if _, err := os.Stat(dest); err == nil {
+		if err := os.Rename(dest, backup); err != nil {
+			return fmt.Errorf("back up current database: %w", err)
+		}
+	}
+	os.Remove(dest + "-wal")
+	os.Remove(dest + "-shm")
+
+	if err := copyFile(srcPath, dest); err != nil {
+		// Try to restore the backup so the app still works.
+		os.Rename(backup, dest)
+		st, reopenErr := store.Open(dest)
+		if reopenErr == nil {
+			b.st = st
+		}
+		return fmt.Errorf("install imported database: %w", err)
+	}
+
+	st, err := store.Open(dest)
+	if err != nil {
+		return fmt.Errorf("open imported database: %w", err)
+	}
+	b.st = st
+	return nil
+}
+
+func copyFile(src, dest string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dest, data, 0o600)
 }

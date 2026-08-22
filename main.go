@@ -59,6 +59,8 @@ func main() {
 			application.NewService(&SendService{sync: syncSvc}),
 			application.NewService(&SearchService{boot: boot}),
 			application.NewService(&AIService{boot: boot}),
+			application.NewService(&SettingsService{boot: boot, sync: syncSvc}),
+			application.NewService(&TransferService{boot: boot, sync: syncSvc}),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

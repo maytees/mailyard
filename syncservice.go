@@ -3,12 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"mailyard/internal/mail"
 	"mailyard/internal/secrets"
+	"mailyard/internal/store"
 )
 
 // wailsEmitter bridges the sync engine's events onto the Wails bus.
@@ -23,12 +26,20 @@ func (wailsEmitter) Emit(name string, data any) {
 type SyncService struct {
 	boot *BootService
 
-	mu     sync.Mutex
-	engine *mail.Engine
-	cancel context.CancelFunc
+	mu         sync.Mutex
+	engine     *mail.Engine
+	cancel     context.CancelFunc
+	subscribed bool
 }
 
-// start brings the engine up; called once from main on first reveal.
+// Settings keys for the tunable sync behavior (values are integers).
+const (
+	settingPollMinutes  = "sync_poll_minutes"
+	settingBackfillDays = "sync_backfill_days"
+)
+
+// start brings the engine up; called from main on first reveal and again
+// after Restart.
 func (s *SyncService) start() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -40,7 +51,11 @@ func (s *SyncService) start() {
 		return // no database, nothing to sync
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	background := context.Background()
+	pollMinutes := settingInt(st, settingPollMinutes, 5)
+	backfillDays := settingInt(st, settingBackfillDays, 90)
+
+	ctx, cancel := context.WithCancel(background)
 	s.cancel = cancel
 	s.engine = &mail.Engine{
 		Store:  st,
@@ -48,18 +63,53 @@ func (s *SyncService) start() {
 		Password: func(accountID string) (string, error) {
 			return secrets.Keychain{}.Get(accountID)
 		},
+		PollInterval:   time.Duration(pollMinutes) * time.Minute,
+		BackfillWindow: time.Duration(backfillDays) * 24 * time.Hour,
 	}
 	s.engine.Start(ctx)
 
-	// New/removed accounts adjust the worker set live.
-	application.Get().Event.On("accounts:changed", func(*application.CustomEvent) {
-		s.mu.Lock()
-		engine := s.engine
-		s.mu.Unlock()
-		if engine != nil {
-			engine.Reconcile(ctx)
-		}
-	})
+	if !s.subscribed {
+		s.subscribed = true
+		// New/removed accounts adjust the worker set live.
+		application.Get().Event.On("accounts:changed", func(*application.CustomEvent) {
+			s.mu.Lock()
+			engine := s.engine
+			s.mu.Unlock()
+			if engine != nil {
+				engine.Reconcile(context.Background())
+			}
+		})
+	}
+}
+
+func settingInt(st *store.Store, key string, fallback int) int {
+	raw, err := st.SettingGet(context.Background(), key, "")
+	if err != nil || raw == "" {
+		return fallback
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value <= 0 {
+		return fallback
+	}
+	return value
+}
+
+// stop tears the engine down (import swaps the store out from under it).
+func (s *SyncService) stop() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.cancel != nil {
+		s.cancel()
+		s.cancel = nil
+	}
+	s.engine = nil
+}
+
+// Restart rebuilds the engine, picking up new settings or a swapped store.
+func (s *SyncService) Restart(ctx context.Context) error {
+	s.stop()
+	s.start()
+	return nil
 }
 
 func (s *SyncService) ServiceShutdown() error {

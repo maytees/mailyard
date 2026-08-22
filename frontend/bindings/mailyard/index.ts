@@ -7,7 +7,9 @@ import * as BootService from "./bootservice.js";
 import * as MailService from "./mailservice.js";
 import * as SearchService from "./searchservice.js";
 import * as SendService from "./sendservice.js";
+import * as SettingsService from "./settingsservice.js";
 import * as SyncService from "./syncservice.js";
+import * as TransferService from "./transferservice.js";
 export {
     AIService,
     AccountService,
@@ -15,9 +17,12 @@ export {
     MailService,
     SearchService,
     SendService,
-    SyncService
+    SettingsService,
+    SyncService,
+    TransferService
 };
 
 export type {
+    AppSettings,
     PickedFile
 } from "./models.js";

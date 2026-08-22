@@ -12,6 +12,13 @@
 import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
 
 /**
+ * Restart rebuilds the engine, picking up new settings or a swapped store.
+ */
+export function Restart(): $CancellablePromise<void> {
+    return $Call.ByID(1153129541);
+}
+
+/**
  * SyncNow runs one incremental pass over every account (palette "Sync now").
  */
 export function SyncNow(): $CancellablePromise<void> {

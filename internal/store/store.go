@@ -63,6 +63,13 @@ func (s *Store) Path() string {
 	return s.path
 }
 
+// VacuumInto writes a compact, consistent snapshot of the database to path —
+// the export mechanism (safe while the database is in use).
+func (s *Store) VacuumInto(ctx context.Context, path string) error {
+	_, err := s.db.ExecContext(ctx, `VACUUM INTO ?`, path)
+	return err
+}
+
 // SettingGet returns the stored value for key, or fallback when unset.
 func (s *Store) SettingGet(ctx context.Context, key, fallback string) (string, error) {
 	var value string
