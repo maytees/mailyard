@@ -6,48 +6,56 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { mailboxes, type Mailbox } from "@/data/mailboxes"
+import type { MailboxColor } from "@/lib/mailbox-colors"
+import { useAccountsStore } from "@/stores/accounts"
+import { useUIStore } from "@/stores/ui"
+import type { Account } from "~/bindings/mailyard/internal/store/models"
 import { KbdShortcut } from "./ui/kbd"
 
 interface MailboxListProps {
-	items?: Mailbox[]
 	activeId?: string
-	onSelect?: (mailbox: Mailbox) => void
-	onAddMailbox?: () => void
+	onSelect?: (account: Account) => void
 }
 
-export function MailboxList({
-	items = mailboxes,
-	activeId,
-	onSelect,
-	onAddMailbox,
-}: MailboxListProps) {
+export function MailboxList({ activeId, onSelect }: MailboxListProps) {
+	const accounts = useAccountsStore((s) => s.accounts)
+	const openAddMailbox = useUIStore((s) => s.setAddMailboxOpen)
+
 	return (
 		<SidebarMenu className="space-y-3.5 mt-5">
-			{items.map((mailbox, i) => (
-				<SidebarMenuItem key={mailbox.id}>
-					{/*TODO: add an option to hide the email from the hover; might be too long in some cases.*/}
+			{accounts.map((account, i) => (
+				<SidebarMenuItem key={account.id}>
 					<SidebarMenuButton
-						tooltip={i <= 9 ? <KbdShortcut shortcut={`mod+${i + 1}`}>{mailbox.name} ({mailbox.email})</KbdShortcut> : `${mailbox.name} (${mailbox.email})`}
-						color={mailbox.color}
+						tooltip={
+							i <= 9 ? (
+								<KbdShortcut shortcut={`mod+${i + 1}`}>
+									{account.displayName} ({account.email})
+								</KbdShortcut>
+							) : (
+								`${account.displayName} (${account.email})`
+							)
+						}
+						color={account.color as MailboxColor}
 						size="default"
-						className="[&_svg]:size-5 rounded-lg"
-						isActive={mailbox.id === activeId}
-						onClick={() => onSelect?.(mailbox)}
+						className="rounded-lg"
+						isActive={account.id === activeId}
+						onClick={() => onSelect?.(account)}
 					>
-						<HugeiconsIcon icon={mailbox.icon} />
+						<span className="text-sm font-semibold font-heading">
+							{(account.displayName || account.email)
+								.charAt(0)
+								.toUpperCase()}
+						</span>
 					</SidebarMenuButton>
 				</SidebarMenuItem>
 			))}
 			<SidebarMenuItem>
 				<SidebarMenuButton
-					tooltip={
-						<KbdShortcut shortcut="alt+shift+m">Add Mailbox</KbdShortcut>
-					}
+					tooltip={<KbdShortcut shortcut="alt+shift+m">Add Mailbox</KbdShortcut>}
 					variant="transparent"
 					size="default"
 					className="[&_svg]:size-5 rounded-lg"
-					onClick={onAddMailbox}
+					onClick={() => openAddMailbox(true)}
 				>
 					<HugeiconsIcon icon={MailPlus} />
 				</SidebarMenuButton>

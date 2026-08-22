@@ -2,8 +2,8 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import * as React from "react"
 import { useHotkeys } from "react-hotkeys-hook"
 
-import { mailboxes } from "@/data/mailboxes"
 import { CommandPaletteContext } from "@/hooks/use-command-palette"
+import { useAccountsStore } from "@/stores/accounts"
 import {
 	Command,
 	CommandDialog,
@@ -35,7 +35,7 @@ const mockEmails: MockEmail[] = [
 	{ id: "5", from: "Vercel", subject: "Deployment failed: petzio-web", mailbox: "emerald" },
 ]
 
-function MailboxDot({ color }: { color: MailboxColor }) {
+function MailboxDot({ color }: { color: string }) {
 	return (
 		<span
 			aria-hidden
@@ -93,6 +93,7 @@ function CommandPalette({
 	onOpenChange: (open: boolean) => void
 }) {
 	const [query, setQuery] = React.useState("")
+	const accounts = useAccountsStore((s) => s.accounts)
 
 	// Reset the query on close (in the handler, not an effect — the dialog
 	// only ever closes through here).
@@ -166,28 +167,33 @@ function CommandPalette({
 
 					<CommandSeparator />
 
-					<CommandGroup heading="Mailboxes">
-						{mailboxes.map((mailbox, i) => (
-							<CommandItem
-								key={mailbox.id}
-								value={`Go to ${mailbox.name} ${mailbox.email}`}
-								onSelect={() => run()}
-							>
-								<MailboxDot color={mailbox.color} />
-								<span>
-									<Highlight text={`Go to ${mailbox.name}`} query={query} />
-								</span>
-								<span className="truncate font-normal text-muted-foreground">
-									<Highlight text={mailbox.email} query={query} />
-								</span>
-								{i <= 9 && (
-									<CommandShortcut>
-										<KbdShortcut shortcut={`mod+${i + 1}`} />
-									</CommandShortcut>
-								)}
-							</CommandItem>
-						))}
-					</CommandGroup>
+					{accounts.length > 0 && (
+						<CommandGroup heading="Mailboxes">
+							{accounts.map((account, i) => (
+								<CommandItem
+									key={account.id}
+									value={`Go to ${account.displayName} ${account.email}`}
+									onSelect={() => run()}
+								>
+									<MailboxDot color={account.color} />
+									<span>
+										<Highlight
+											text={`Go to ${account.displayName}`}
+											query={query}
+										/>
+									</span>
+									<span className="truncate font-normal text-muted-foreground">
+										<Highlight text={account.email} query={query} />
+									</span>
+									{i < 9 && (
+										<CommandShortcut>
+											<KbdShortcut shortcut={`mod+${i + 1}`} />
+										</CommandShortcut>
+									)}
+								</CommandItem>
+							))}
+						</CommandGroup>
+					)}
 
 					{emailMatches.length > 0 && (
 						<>

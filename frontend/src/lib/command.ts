@@ -1,6 +1,7 @@
 // File is mostly written by claude
 import { useSettingsStore } from "@/stores/settings"
 import { useThemeStore } from "@/stores/theme"
+import { useUIStore } from "@/stores/ui"
 import {
 	AiBrain01Icon,
 	AiEditingIcon,
@@ -107,7 +108,14 @@ export const commands: AppCommand[] = [
 		run: () => useSettingsStore.getState().toggleCompact(),
 	},
 	{ id: "sync", label: "Sync all mailboxes", icon: RefreshIcon, group: "App" },
-	{ id: "add-mailbox", label: "Add mailbox", icon: MailPlus, shortcut: "alt+shift+m", group: "App" },
+	{
+		id: "add-mailbox",
+		label: "Add mailbox",
+		icon: MailPlus,
+		shortcut: "alt+shift+m",
+		group: "App",
+		run: () => useUIStore.getState().setAddMailboxOpen(true),
+	},
 	{ id: "settings", label: "Open settings", icon: Settings01Icon, shortcut: "mod+,", group: "App" },
 	{
 		id: "quit-app",

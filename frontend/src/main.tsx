@@ -6,6 +6,7 @@ import App from "./App.tsx"
 import { TooltipProvider } from "./components/ui/tooltip.tsx"
 import { SidebarProvider } from "./components/ui/sidebar.tsx"
 import { AppSidebar } from "./components/app-sidebar.tsx"
+import { AddMailboxDialog } from "./components/add-mailbox-dialog.tsx"
 import { CommandPaletteProvider } from "./components/command-palette.tsx"
 import { SplashGate } from "./components/splash-screen.tsx"
 import { initThemeStore } from "./stores/theme.ts"
@@ -27,6 +28,7 @@ createRoot(document.getElementById("root")!).render(
 						<main className="w-full">
 							<App />
 						</main>
+						<AddMailboxDialog />
 					</SidebarProvider>
 				</CommandPaletteProvider>
 			</TooltipProvider>

@@ -1,13 +1,21 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { MailPane } from "./components/mail-pane";
 import { MailView } from "./components/mail-view";
+import { Onboarding } from "./components/onboarding";
 import { Badge } from "./components/ui/badge";
 import { MailIcon } from "@hugeicons/core-free-icons";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./components/ui/tooltip";
 import { Button } from "./components/ui/button";
 import { formatShortcut } from "./lib/keyboard";
+import { useAccountsStore } from "./stores/accounts";
 
 export function App() {
+	const { accounts, loaded } = useAccountsStore();
+
+	if (loaded && accounts.length === 0) {
+		return <Onboarding />;
+	}
+
 	return <div className="flex flex-row w-full">
 		<MailPane />
 		{/* hidden for now, dont even know if i'll show this */}
