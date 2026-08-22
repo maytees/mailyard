@@ -65,6 +65,20 @@ func (a *AccountService) UpdateAccount(ctx context.Context, input accounts.Updat
 	return account, nil
 }
 
+// ReorderAccounts persists the drag-and-drop rail order (all account ids in
+// their new sequence).
+func (a *AccountService) ReorderAccounts(ctx context.Context, ids []string) error {
+	m, err := a.manager()
+	if err != nil {
+		return err
+	}
+	if err := m.Store.ReorderAccounts(ctx, ids); err != nil {
+		return err
+	}
+	application.Get().Event.Emit("accounts:changed", true)
+	return nil
+}
+
 func (a *AccountService) RemoveAccount(ctx context.Context, id string) error {
 	m, err := a.manager()
 	if err != nil {

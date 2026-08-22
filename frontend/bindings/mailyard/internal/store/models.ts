@@ -18,6 +18,11 @@ export interface Account {
     "username": string;
     "authKind": string;
     "createdAt": number;
+
+    /**
+     * SortOrder is the rail position (0-based, user-arranged).
+     */
+    "sortOrder": number;
 }
 
 export interface Address {

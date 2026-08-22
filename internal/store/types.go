@@ -25,6 +25,8 @@ type Account struct {
 	Username  string `json:"username"`
 	AuthKind  string `json:"authKind"`
 	CreatedAt int64  `json:"createdAt"`
+	// SortOrder is the rail position (0-based, user-arranged).
+	SortOrder int `json:"sortOrder"`
 }
 
 type Folder struct {

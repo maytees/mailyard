@@ -101,6 +101,10 @@ func (m *Manager) Add(ctx context.Context, in AddInput) (store.Account, error) {
 	if account.Color == "" {
 		account.Color = "violet"
 	}
+	// New mailboxes land at the end of the rail.
+	if existing, err := m.Store.ListAccounts(ctx); err == nil {
+		account.SortOrder = len(existing)
+	}
 
 	// Keychain first: a DB row without a credential is a broken account,
 	// a stray keychain entry is harmless.

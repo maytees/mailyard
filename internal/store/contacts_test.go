@@ -5,6 +5,36 @@ import (
 	"testing"
 )
 
+func TestReorderAccounts(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	a := testAccount(t, s, "acc-a")
+	b := testAccount(t, s, "acc-b")
+	c := testAccount(t, s, "acc-c")
+
+	if err := s.ReorderAccounts(ctx, []string{c.ID, a.ID, b.ID}); err != nil {
+		t.Fatalf("reorder: %v", err)
+	}
+	accounts, err := s.ListAccounts(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	got := []string{accounts[0].ID, accounts[1].ID, accounts[2].ID}
+	if got[0] != c.ID || got[1] != a.ID || got[2] != b.ID {
+		t.Fatalf("order not persisted: %v", got)
+	}
+
+	// A later addition with a higher sort_order lands at the end.
+	d := testAccount(t, s, "acc-d")
+	if err := s.UpsertAccount(ctx, func() Account { d.SortOrder = 3; return d }()); err != nil {
+		t.Fatal(err)
+	}
+	accounts, _ = s.ListAccounts(ctx)
+	if accounts[3].ID != d.ID {
+		t.Fatalf("new account not appended: %+v", accounts)
+	}
+}
+
 func TestSearchContacts(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()

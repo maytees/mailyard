@@ -11,8 +11,8 @@ func (s *Store) UpsertAccount(ctx context.Context, a Account) error {
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO accounts
 			(id, email, display_name, color, icon, imap_host, imap_port,
-			 smtp_host, smtp_port, username, auth_kind, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			 smtp_host, smtp_port, username, auth_kind, created_at, sort_order)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			email = excluded.email,
 			display_name = excluded.display_name,
@@ -23,17 +23,18 @@ func (s *Store) UpsertAccount(ctx context.Context, a Account) error {
 			smtp_host = excluded.smtp_host,
 			smtp_port = excluded.smtp_port,
 			username = excluded.username,
-			auth_kind = excluded.auth_kind`,
+			auth_kind = excluded.auth_kind,
+			sort_order = excluded.sort_order`,
 		a.ID, a.Email, a.DisplayName, a.Color, a.Icon, a.IMAPHost, a.IMAPPort,
-		a.SMTPHost, a.SMTPPort, a.Username, a.AuthKind, a.CreatedAt)
+		a.SMTPHost, a.SMTPPort, a.Username, a.AuthKind, a.CreatedAt, a.SortOrder)
 	return err
 }
 
 func (s *Store) ListAccounts(ctx context.Context) ([]Account, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, email, display_name, color, icon, imap_host, imap_port,
-		       smtp_host, smtp_port, username, auth_kind, created_at
-		FROM accounts ORDER BY created_at, id`)
+		       smtp_host, smtp_port, username, auth_kind, created_at, sort_order
+		FROM accounts ORDER BY sort_order, created_at, id`)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +45,7 @@ func (s *Store) ListAccounts(ctx context.Context) ([]Account, error) {
 		var a Account
 		if err := rows.Scan(&a.ID, &a.Email, &a.DisplayName, &a.Color, &a.Icon,
 			&a.IMAPHost, &a.IMAPPort, &a.SMTPHost, &a.SMTPPort,
-			&a.Username, &a.AuthKind, &a.CreatedAt); err != nil {
+			&a.Username, &a.AuthKind, &a.CreatedAt, &a.SortOrder); err != nil {
 			return nil, err
 		}
 		accounts = append(accounts, a)
@@ -56,11 +57,11 @@ func (s *Store) GetAccount(ctx context.Context, id string) (Account, error) {
 	var a Account
 	err := s.db.QueryRowContext(ctx, `
 		SELECT id, email, display_name, color, icon, imap_host, imap_port,
-		       smtp_host, smtp_port, username, auth_kind, created_at
+		       smtp_host, smtp_port, username, auth_kind, created_at, sort_order
 		FROM accounts WHERE id = ?`, id).
 		Scan(&a.ID, &a.Email, &a.DisplayName, &a.Color, &a.Icon,
 			&a.IMAPHost, &a.IMAPPort, &a.SMTPHost, &a.SMTPPort,
-			&a.Username, &a.AuthKind, &a.CreatedAt)
+			&a.Username, &a.AuthKind, &a.CreatedAt, &a.SortOrder)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Account{}, fmt.Errorf("account %q not found", id)
 	}
@@ -85,6 +86,24 @@ func (s *Store) DeleteAccount(ctx context.Context, id string) error {
 	if _, err := tx.ExecContext(ctx,
 		`DELETE FROM accounts WHERE id = ?`, id); err != nil {
 		return err
+	}
+	return tx.Commit()
+}
+
+// ReorderAccounts persists a full user-arranged ordering: ids get sort_order
+// 0..n-1 in the given sequence. Unknown ids are ignored; accounts missing
+// from ids keep their old positions relative to the tail.
+func (s *Store) ReorderAccounts(ctx context.Context, ids []string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for index, id := range ids {
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE accounts SET sort_order = ? WHERE id = ?`, index, id); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }

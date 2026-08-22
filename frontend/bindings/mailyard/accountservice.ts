@@ -31,6 +31,14 @@ export function RemoveAccount(id: string): $CancellablePromise<void> {
     return $Call.ByID(2544074941, id);
 }
 
+/**
+ * ReorderAccounts persists the drag-and-drop rail order (all account ids in
+ * their new sequence).
+ */
+export function ReorderAccounts(ids: string[] | null): $CancellablePromise<void> {
+    return $Call.ByID(540797413, ids);
+}
+
 export function UpdateAccount(input: accounts$0.UpdateInput): $CancellablePromise<store$0.Account> {
     return $Call.ByID(592440522, input);
 }
