@@ -4,12 +4,14 @@
 import * as AccountService from "./accountservice.js";
 import * as BootService from "./bootservice.js";
 import * as MailService from "./mailservice.js";
+import * as SearchService from "./searchservice.js";
 import * as SendService from "./sendservice.js";
 import * as SyncService from "./syncservice.js";
 export {
     AccountService,
     BootService,
     MailService,
+    SearchService,
     SendService,
     SyncService
 };

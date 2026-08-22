@@ -4,7 +4,9 @@ import { useHotkeys } from "react-hotkeys-hook"
 
 import { CommandPaletteContext } from "@/hooks/use-command-palette"
 import { useAccountsStore } from "@/stores/accounts"
-import { setAccountFilter } from "@/stores/mail"
+import { openMessage, setAccountFilter } from "@/stores/mail"
+import * as SearchService from "~/bindings/mailyard/searchservice"
+import type { Message } from "~/bindings/mailyard/internal/store/models"
 import {
 	Command,
 	CommandDialog,
@@ -18,23 +20,30 @@ import {
 } from "@/components/ui/command"
 import { KbdShortcut } from "@/components/ui/kbd"
 import { commandGroups, resolveCommandField } from "@/lib/command"
-import type { MailboxColor } from "@/lib/mailbox-colors"
 
-// Mock results until the Go backend feeds real mail in.
-interface MockEmail {
-	id: string
-	from: string
-	subject: string
-	mailbox: MailboxColor
+const SEARCH_DEBOUNCE_MS = 150
+const SEARCH_LIMIT = 8
+
+/** Debounced FTS search against the Go backend while the user types. */
+function useMailSearch(query: string) {
+	const [hits, setHits] = React.useState<Message[]>([])
+
+	React.useEffect(() => {
+		const q = query.trim()
+		const timer = setTimeout(() => {
+			if (!q) {
+				setHits([])
+				return
+			}
+			SearchService.Search(q, "", SEARCH_LIMIT)
+				.then((results) => setHits(results ?? []))
+				.catch(() => setHits([]))
+		}, SEARCH_DEBOUNCE_MS)
+		return () => clearTimeout(timer)
+	}, [query])
+
+	return hits
 }
-
-const mockEmails: MockEmail[] = [
-	{ id: "1", from: "GitHub", subject: "[mailyard] Your build passed", mailbox: "violet" },
-	{ id: "2", from: "GMU Registrar", subject: "Fall registration opens Monday", mailbox: "blue" },
-	{ id: "3", from: "Stripe", subject: "Your invoice for Petzio is ready", mailbox: "emerald" },
-	{ id: "4", from: "Mom", subject: "Dinner on Sunday?", mailbox: "rose" },
-	{ id: "5", from: "Vercel", subject: "Deployment failed: petzio-web", mailbox: "emerald" },
-]
 
 function MailboxDot({ color }: { color: string }) {
 	return (
@@ -95,6 +104,15 @@ function CommandPalette({
 }) {
 	const [query, setQuery] = React.useState("")
 	const accounts = useAccountsStore((s) => s.accounts)
+	const emailMatches = useMailSearch(query)
+
+	const accountColor = React.useMemo(() => {
+		const map: Record<string, string> = {}
+		for (const account of accounts) {
+			map[account.id] = account.color
+		}
+		return map
+	}, [accounts])
 
 	// Reset the query on close (in the handler, not an effect — the dialog
 	// only ever closes through here).
@@ -111,13 +129,6 @@ function CommandPalette({
 		action?.()
 	}
 
-	// Mail search is a fallback: only shown once the user starts typing.
-	const q = query.trim().toLowerCase()
-	const emailMatches = q
-		? mockEmails.filter((email) =>
-			`${email.from} ${email.subject}`.toLowerCase().includes(q)
-		)
-		: []
 
 	return (
 		<CommandDialog
@@ -203,15 +214,25 @@ function CommandPalette({
 								{emailMatches.map((email) => (
 									<CommandItem
 										key={email.id}
-										value={`${email.from} ${email.subject}`}
-										onSelect={() => run()}
+										// FTS matches on the body too, which cmdk's fuzzy filter
+										// can't see — append the query so hits always survive it.
+										value={`${email.from.name} ${email.subject} ${query}`}
+										onSelect={() => run(() => openMessage(email))}
 									>
-										<MailboxDot color={email.mailbox} />
+										<MailboxDot
+											color={accountColor[email.accountId] ?? "violet"}
+										/>
 										<span className="shrink-0">
-											<Highlight text={email.from} query={query} />
+											<Highlight
+												text={email.from.name || email.from.email}
+												query={query}
+											/>
 										</span>
 										<span className="truncate font-normal text-muted-foreground">
-											<Highlight text={email.subject} query={query} />
+											<Highlight
+												text={email.subject || "(no subject)"}
+												query={query}
+											/>
 										</span>
 									</CommandItem>
 								))}

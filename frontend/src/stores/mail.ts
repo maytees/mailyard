@@ -12,6 +12,8 @@ const PAGE_SIZE = 50
 interface MailState {
 	messages: Message[]
 	activeMessageId: number | null
+	/** A selection that isn't in the current list page (e.g. a search hit). */
+	detachedMessage: Message | null
 	/** "" = unified view across all accounts. */
 	accountFilter: string
 	folderRole: string
@@ -24,6 +26,7 @@ interface MailState {
 export const useMailStore = create<MailState>(() => ({
 	messages: [],
 	activeMessageId: null,
+	detachedMessage: null,
 	accountFilter: "",
 	folderRole: "inbox",
 	unreadCounts: {},
@@ -46,8 +49,10 @@ export async function refreshMailList() {
 	useMailStore.setState({ loading: true })
 	try {
 		const messages = (await MailService.ListMessages(currentFilter(0))) ?? []
-		const { activeMessageId } = useMailStore.getState()
-		const stillThere = messages.some((m) => m.id === activeMessageId)
+		const { activeMessageId, detachedMessage } = useMailStore.getState()
+		const stillThere =
+			messages.some((m) => m.id === activeMessageId) ||
+			detachedMessage?.id === activeMessageId
 		useMailStore.setState({
 			messages,
 			hasMore: messages.length === PAGE_SIZE,
@@ -87,7 +92,7 @@ export async function refreshUnreadCounts() {
 
 /** Selects a message and marks it read (optimistically; Go pushes \Seen). */
 export function setActiveMessage(id: number | null) {
-	useMailStore.setState({ activeMessageId: id })
+	useMailStore.setState({ activeMessageId: id, detachedMessage: null })
 	if (id == null) return
 
 	const { messages } = useMailStore.getState()
@@ -107,6 +112,19 @@ export function setActiveMessage(id: number | null) {
 	MailService.MarkRead(id, true).catch((error: unknown) =>
 		console.error("mark read failed", error)
 	)
+}
+
+/** Opens a message that may live outside the current view (search hits). */
+export function openMessage(message: Message) {
+	useMailStore.setState({
+		activeMessageId: message.id,
+		detachedMessage: message,
+	})
+	if (message.unread) {
+		MailService.MarkRead(message.id, true)
+			.then(() => refreshUnreadCounts())
+			.catch((error: unknown) => console.error("mark read failed", error))
+	}
 }
 
 /** Toggle-style account filter: selecting the active account clears it. */

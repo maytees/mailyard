@@ -43,7 +43,10 @@ import type {
 export function MailView() {
 	const messages = useMailStore((s) => s.messages);
 	const activeMessageId = useMailStore((s) => s.activeMessageId);
-	const message = messages.find((m) => m.id === activeMessageId);
+	const detachedMessage = useMailStore((s) => s.detachedMessage);
+	const message =
+		messages.find((m) => m.id === activeMessageId) ??
+		(detachedMessage?.id === activeMessageId ? detachedMessage : undefined);
 
 	if (!message) {
 		return (
