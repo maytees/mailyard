@@ -185,15 +185,16 @@ async function saveDraftNow() {
 
 // ---- prefill from an existing message --------------------------------------
 
-function quoteBody(message: Message, text: string) {
-	const attribution = `On ${formatFullDate(message.date)}, ${
-		message.from.name || message.from.email
-	} wrote:`
-	const quoted = text
-		.split("\n")
-		.map((line) => `> ${line}`)
-		.join("\n")
-	return `\n\n${attribution}\n${quoted}`
+// The conventional forwarded-message block — forwards must carry the
+// original content, unlike replies.
+function forwardedBlock(message: Message, text: string) {
+	return (
+		`\n\n---------- Forwarded message ----------\n` +
+		`From: ${message.from.name || message.from.email} <${message.from.email}>\n` +
+		`Date: ${formatFullDate(message.date)}\n` +
+		`Subject: ${message.subject}\n\n` +
+		text
+	)
 }
 
 function withPrefix(subject: string, prefix: string) {
@@ -202,21 +203,26 @@ function withPrefix(subject: string, prefix: string) {
 		: `${prefix} ${subject}`
 }
 
-/** Opens compose prefilled as reply / reply-all / forward of a message. */
+/** Opens compose prefilled as reply / reply-all / forward of a message.
+ * Replies start with a clean body — no "> " quote chain (threading lives in
+ * the In-Reply-To/References headers, and quote pyramids grow unreadable). */
 export async function composeFromMessage(message: Message, mode: ComposeMode) {
 	const account = useAccountsStore
 		.getState()
 		.accounts.find((a) => a.id === message.accountId)
 	const ownEmail = account?.email ?? ""
 
-	let quotedSource = ""
-	try {
-		const fetched = await MailService.GetMessageBody(message.id)
-		quotedSource = fetched.textBody
-	} catch {
-		// Quote an empty body if the cache misses.
+	let body = ""
+	if (mode === "forward") {
+		let original = ""
+		try {
+			const fetched = await MailService.GetMessageBody(message.id)
+			original = fetched.textBody
+		} catch {
+			// Forward an empty body if the cache misses.
+		}
+		body = forwardedBlock(message, original)
 	}
-	const body = quoteBody(message, quotedSource)
 
 	const prefill: Partial<ComposeState> = {
 		mode,
