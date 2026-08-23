@@ -268,6 +268,10 @@ export async function draftReplyWithAI(message: Message) {
  * body. Follow-up instructions are conversational: the model sees the
  * current draft plus earlier dictations and outputs the complete revised
  * email (edit or replacement — its call), which replaces the body.
+ *
+ * The model's first line is "Subject: …"; it fills the subject field only
+ * when that field is empty, so replies ("Re: …") and user-typed subjects
+ * are never overwritten. The line is buffered out of the body stream.
  */
 export async function composeFromInstructions(instructions: string) {
 	const compose = useComposeStore.getState()
@@ -282,7 +286,10 @@ export async function composeFromInstructions(instructions: string) {
 			currentDraft: compose.body,
 			priorInstructions: compose.aiInstructionHistory,
 		})
-		let draft = ""
+		const subjectWasEmpty = compose.subject.trim() === ""
+		let raw = ""
+		let headerDone = false
+		let bodyStart = 0
 		registerHandler(requestId, (chunk) => {
 			if (chunk.error) {
 				toast.error(chunk.error)
@@ -290,14 +297,29 @@ export async function composeFromInstructions(instructions: string) {
 				return
 			}
 			if (chunk.done) {
+				if (!headerDone) setComposeField("body", raw)
 				useComposeStore.setState((s) => ({
 					aiWriting: false,
 					aiInstructionHistory: [...s.aiInstructionHistory, trimmed],
 				}))
 				return
 			}
-			draft += chunk.chunk
-			setComposeField("body", draft)
+			raw += chunk.chunk
+			if (!headerDone) {
+				// Could still be mid-way through the literal "Subject:" prefix.
+				if ("Subject:".startsWith(raw)) return
+				if (raw.startsWith("Subject:")) {
+					const newline = raw.indexOf("\n")
+					if (newline === -1) return // subject line still streaming
+					const subject = raw.slice("Subject:".length, newline).trim()
+					if (subject && subjectWasEmpty) {
+						setComposeField("subject", subject)
+					}
+					bodyStart = newline + 1
+				}
+				headerDone = true
+			}
+			setComposeField("body", raw.slice(bodyStart).replace(/^\n+/, ""))
 		})
 	} catch (raw: unknown) {
 		toast.error(raw instanceof Error ? raw.message : String(raw))
