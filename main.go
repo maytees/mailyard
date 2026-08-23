@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"mailyard/internal/ai"
 	"mailyard/internal/mail"
@@ -68,7 +69,10 @@ func main() {
 			Handler: application.AssetFileServerFS(assets),
 		},
 		Mac: application.MacOptions{
-			ApplicationShouldTerminateAfterLastWindowClosed: true,
+			// Mail-app convention: closing the window hides it (see the
+			// WindowClosing hook below); the app keeps syncing in the Dock so
+			// notifications arrive. ⌘Q actually quits.
+			ApplicationShouldTerminateAfterLastWindowClosed: false,
 		},
 	})
 
@@ -131,6 +135,18 @@ func main() {
 
 	app.Event.On("frontend:ready", func(event *application.CustomEvent) {
 		reveal()
+	})
+
+	// Closing the main window hides it instead of destroying it — sync and
+	// notifications keep running. The splash window is untouched (its Close()
+	// during reveal must really close).
+	mainWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		e.Cancel()
+		mainWindow.Hide()
+	})
+	// Clicking the Dock icon with no visible window brings it back.
+	app.Event.OnApplicationEvent(events.Mac.ApplicationShouldHandleReopen, func(*application.ApplicationEvent) {
+		mainWindow.Show()
 	})
 
 	// Failsafe: a wedged frontend must never leave the user staring at the
