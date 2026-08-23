@@ -6,6 +6,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zendev-sh/goai"
 
@@ -44,7 +45,10 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 
 	requestID := newRequestID()
 	go func() {
-		background := context.Background()
+		// A hard deadline turns a wedged model into a visible error instead
+		// of an eternal caret.
+		background, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+		defer cancel()
 		result, err := goai.GenerateObject[summaryOutput](background, model,
 			goai.WithSystem("Summarize the email thread for its owner: who wants "+
 				"what, what was decided, what happens next. 1-3 plain sentences, "+
@@ -65,7 +69,7 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 				Error: "the model returned an empty summary — try again"})
 			return
 		}
-		if err := s.Store.ArtifactSet(background,
+		if err := s.Store.ArtifactSet(context.Background(),
 			store.ArtifactThreadSummary, threadID, summary, modelName); err != nil {
 			log.Printf("cache summary: %v", err)
 		}

@@ -187,7 +187,17 @@ func (s *Service) streamRequest(system, prompt string, maxOutputTokens int, onDo
 	return requestID, nil
 }
 
-// threadText renders a thread (bodies included) into a prompt-friendly form.
+// Prompt-size caps. Local models have small context windows (Ollama defaults
+// to ~4k tokens) and slow prefill — an uncapped thread can push first-token
+// latency into minutes and silently truncate anyway.
+const (
+	threadTextMaxMessages = 8
+	threadTextPerBody     = 1200
+	threadTextTotal       = 8000
+)
+
+// threadText renders a thread (bodies included) into a prompt-friendly form,
+// newest messages preserved when the caps bite.
 func (s *Service) threadText(ctx context.Context, accountID, threadID string) (string, error) {
 	thread, err := s.Store.GetThread(ctx, accountID, threadID)
 	if err != nil {
@@ -196,8 +206,11 @@ func (s *Service) threadText(ctx context.Context, accountID, threadID string) (s
 	if len(thread) == 0 {
 		return "", fmt.Errorf("thread not found")
 	}
+	if len(thread) > threadTextMaxMessages {
+		thread = thread[len(thread)-threadTextMaxMessages:]
+	}
 
-	var b strings.Builder
+	parts := make([]string, 0, len(thread))
 	for _, message := range thread {
 		body, err := s.Store.GetMessageBody(ctx, message.ID)
 		if err != nil {
@@ -207,8 +220,18 @@ func (s *Service) threadText(ctx context.Context, accountID, threadID string) (s
 		if text == "" {
 			text = message.Snippet
 		}
-		fmt.Fprintf(&b, "From: %s <%s>\nSubject: %s\n\n%s\n\n---\n\n",
-			message.From.Name, message.From.Email, message.Subject, text)
+		if len(text) > threadTextPerBody {
+			text = text[:threadTextPerBody] + "…"
+		}
+		parts = append(parts, fmt.Sprintf("From: %s <%s>\nSubject: %s\n\n%s",
+			message.From.Name, message.From.Email, message.Subject, text))
 	}
-	return b.String(), nil
+
+	// Drop oldest messages until the whole prompt fits.
+	joined := strings.Join(parts, "\n\n---\n\n")
+	for len(joined) > threadTextTotal && len(parts) > 1 {
+		parts = parts[1:]
+		joined = strings.Join(parts, "\n\n---\n\n")
+	}
+	return joined, nil
 }

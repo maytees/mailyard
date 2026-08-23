@@ -56,6 +56,15 @@ export function AIPanel({ threadKey }: { threadKey: string }) {
 							items={panel.items}
 							streaming={panel.streaming}
 						/>
+					) : panel.streaming && !panel.content ? (
+						// Nothing arrives until generation finishes (structured
+						// output) — say so, or a local model's think-time reads
+						// as a hang.
+						<p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+							Working on it — local models can take a minute on long
+							threads
+							<StreamingCaret />
+						</p>
 					) : (
 						<p className="text-sm leading-relaxed whitespace-pre-wrap">
 							{panel.content}

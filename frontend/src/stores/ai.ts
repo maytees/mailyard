@@ -64,13 +64,33 @@ export async function loadAIConfig() {
 
 type ChunkHandler = (chunk: StreamChunk) => void
 const handlers = new Map<string, ChunkHandler>()
+// Chunks can beat handler registration over the event bus (especially cached
+// replays, which emit immediately) — buffer orphans and flush on register,
+// or the request "hangs" forever.
+const orphanChunks = new Map<string, StreamChunk[]>()
 
 function handleChunk(chunk: StreamChunk) {
 	const handler = handlers.get(chunk.requestId)
-	if (!handler) return
+	if (!handler) {
+		const buffered = orphanChunks.get(chunk.requestId) ?? []
+		buffered.push(chunk)
+		orphanChunks.set(chunk.requestId, buffered)
+		return
+	}
 	handler(chunk)
 	if (chunk.done) {
 		handlers.delete(chunk.requestId)
+	}
+}
+
+/** Registers a stream handler and replays anything that arrived early. */
+function registerHandler(requestId: string, handler: ChunkHandler) {
+	handlers.set(requestId, handler)
+	const buffered = orphanChunks.get(requestId)
+	if (!buffered) return
+	orphanChunks.delete(requestId)
+	for (const chunk of buffered) {
+		handleChunk(chunk)
 	}
 }
 
@@ -85,7 +105,7 @@ async function streamIntoPanel(
 	})
 	try {
 		const requestId = await start()
-		handlers.set(requestId, (chunk) => {
+		registerHandler(requestId, (chunk) => {
 			useAIStore.setState((s) => {
 				if (!s.panel || s.panel.threadKey !== threadKey) return s
 				return {
@@ -177,7 +197,7 @@ export async function draftReplyWithAI(message: Message) {
 	try {
 		const requestId = await AIService.DraftReply(message.accountId, message.threadId)
 		let draft = ""
-		handlers.set(requestId, (chunk) => {
+		registerHandler(requestId, (chunk) => {
 			if (chunk.error) {
 				toast.error(chunk.error)
 				return
@@ -206,7 +226,7 @@ export async function composeFromInstructions(instructions: string) {
 			instructions.trim()
 		)
 		let draft = ""
-		handlers.set(requestId, (chunk) => {
+		registerHandler(requestId, (chunk) => {
 			if (chunk.error) {
 				toast.error(chunk.error)
 				return
@@ -226,7 +246,7 @@ export async function rewriteComposeBody(tone: string) {
 	try {
 		const requestId = await AIService.Rewrite(body, tone)
 		let rewritten = ""
-		handlers.set(requestId, (chunk) => {
+		registerHandler(requestId, (chunk) => {
 			if (chunk.error) {
 				toast.error(chunk.error)
 				return
