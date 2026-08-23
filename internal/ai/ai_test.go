@@ -235,17 +235,19 @@ func TestPromptOverrides(t *testing.T) {
 	ctx := context.Background()
 
 	// Defaults resolve with substitution.
-	text := service.promptText(ctx, "translate", map[string]string{"language": "French"})
-	if !strings.Contains(text, "into French") {
+	text := service.promptText(ctx, "draft-reply", map[string]string{
+		"mailbox_name": "P", "mailbox_email": "p@x.com", "your_name": "Zed",
+	})
+	if !strings.Contains(text, "Zed alone on the final line") {
 		t.Fatalf("default template not filled: %q", text)
 	}
 
 	// Overrides win and substitute too.
-	if err := service.SetPrompt(ctx, "translate", "Translate to {language}, cowboy style."); err != nil {
+	if err := service.SetPrompt(ctx, "draft-reply", "Reply as {your_name}, cowboy style."); err != nil {
 		t.Fatalf("set prompt: %v", err)
 	}
-	text = service.promptText(ctx, "translate", map[string]string{"language": "French"})
-	if text != "Translate to French, cowboy style." {
+	text = service.promptText(ctx, "draft-reply", map[string]string{"your_name": "Zed"})
+	if text != "Reply as Zed, cowboy style." {
 		t.Fatalf("override ignored: %q", text)
 	}
 
@@ -256,7 +258,7 @@ func TestPromptOverrides(t *testing.T) {
 	}
 	found := false
 	for _, prompt := range prompts {
-		if prompt.ID == "translate" {
+		if prompt.ID == "draft-reply" {
 			found = true
 			if prompt.Custom == "" {
 				t.Fatal("override not reported")
@@ -266,12 +268,12 @@ func TestPromptOverrides(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatal("translate prompt missing from list")
+		t.Fatal("draft-reply prompt missing from list")
 	}
-	if err := service.SetPrompt(ctx, "translate", ""); err != nil {
+	if err := service.SetPrompt(ctx, "draft-reply", ""); err != nil {
 		t.Fatalf("reset: %v", err)
 	}
-	if text := service.promptText(ctx, "translate", map[string]string{"language": "x"}); !strings.Contains(text, "Preserve tone") {
+	if text := service.promptText(ctx, "draft-reply", nil); !strings.Contains(text, "one-click reply") {
 		t.Fatalf("reset didn't restore default: %q", text)
 	}
 

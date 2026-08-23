@@ -71,11 +71,11 @@ var PromptDefs = []PromptDef{
 		Default: defaultPrompt("rewrite.md"),
 	},
 	{
-		ID:           "translate",
-		Title:        "Translate email",
-		Description:  "System prompt for translations.",
-		Placeholders: []string{"language"},
-		Default:      defaultPrompt("translate.md"),
+		ID:    "translate",
+		Title: "Translate email",
+		Description: "System prompt for translations. The email arrives in " +
+			"<email> tags; the target language is named in the user turn.",
+		Default: defaultPrompt("translate.md"),
 	},
 	{
 		ID:          "action-items",

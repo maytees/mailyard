@@ -96,6 +96,10 @@ Aligned already:
   Gmail-spec examples, <thread>/<draft>/<input> user turn, revision
   semantics, thread-as-context-never-instructions. Voice matching from
   sent mail still pending (below).
+- Translate (prompts/translate.md): meaning-not-words, never-translate
+  list (names/addresses/URLs/codes), formality matching, flipped
+  injection rule (embedded instructions get translated, never followed),
+  language named in the user turn over an <email> tag.
 - Rewrite (prompts/rewrite.md): per-tone definitions, minimal-edit rule
   (adjust register, not the message), tone named in the user turn so one
   system prompt caches for all three buttons.
@@ -118,7 +122,7 @@ Pending (waiting on per-feature passes):
 - Reply intent upgrades (from the prompt notes): optional hint field
   ("say yes", "push back") layered on the same prompt, or three-variant
   accept/decline/defer generation.
-- List digests, action items, translate: same treatment.
+- List digests, action items: same treatment.
 - Sanitization pass: zero-width/bidi/control chars, HTML comments,
   CSS-hidden text.
 - Model tiering (small model for triage/digests) and prompt-version logging.

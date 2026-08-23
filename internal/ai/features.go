@@ -189,11 +189,14 @@ func (s *Service) Rewrite(ctx context.Context, text, tone string) (string, error
 	)
 }
 
-// Translate streams the text translated into the target language.
+// Translate streams the email translated into the target language. The
+// language rides in the user turn so one static system prompt caches for
+// every language.
 func (s *Service) Translate(ctx context.Context, text, language string) (string, error) {
+	prompt := "<email>\n" + text + "\n</email>\n\nTranslate this email into " + language + "."
 	return s.streamRequest(
-		s.promptText(ctx, "translate", map[string]string{"language": language}),
-		text,
+		s.promptText(ctx, "translate", nil),
+		prompt,
 		1200,
 		nil,
 	)
