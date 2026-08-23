@@ -1,5 +1,7 @@
 # Mailyard
 
+**Note: this project is heavily vibe coded and not a representation of my software engineering skills, it's just a utility app I needed quickly.**
+
 A unified AI mailbox. One inbox for every account — offline-first, keyboard-driven, with AI woven in.
 
 Built with [Wails v3](https://v3.wails.io) (Go backend) and React 19 / Tailwind v4 / shadcn.
