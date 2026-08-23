@@ -1,4 +1,7 @@
-Unicode true
+# ANSI on purpose: homebrew makensis crashes (std::bad_alloc, NSIS bug #1165)
+# compiling Unicode installers on macOS. Flip back to true when building on
+# Windows itself.
+Unicode false
 
 ####
 ## Please note: Template replacements don't work in this file. They are provided with default defines like
@@ -23,7 +26,7 @@ Unicode true
 ## !define INFO_COMPANYNAME    "My Company" # Default "My Company"
 ## !define INFO_PRODUCTNAME    "Mailyard Name" # Default "Mailyard"
 ## !define INFO_PRODUCTVERSION "1.0.0"     # Default "0.1.0"
-## !define INFO_COPYRIGHT      "(c) Now, My Company" # Default "© 2026, My Company"
+## !define INFO_COPYRIGHT      "(c) Now, My Company" # Default "(c) 2026, My Company"
 ###
 ## !define PRODUCT_EXECUTABLE  "Application.exe"      # Default "${INFO_PROJECTNAME}.exe"
 ## !define UNINST_KEY_NAME     "UninstKeyInRegistry"  # Default "${INFO_COMPANYNAME}${INFO_PRODUCTNAME}"
