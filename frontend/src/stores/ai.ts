@@ -253,20 +253,23 @@ export async function draftReplyWithAI(message: Message) {
 
 /**
  * Writes the email from the user's instructions, streaming into the compose
- * body above whatever is already there (quotes, forwarded blocks). Replies
- * pass their message so the backend can pull thread context.
+ * body. Follow-up instructions are conversational: the model sees the
+ * current draft plus earlier dictations and outputs the complete revised
+ * email (edit or replacement — its call), which replaces the body.
  */
 export async function composeFromInstructions(instructions: string) {
 	const compose = useComposeStore.getState()
-	if (!compose.accountId || !instructions.trim()) return
-	const base = compose.body
+	const trimmed = instructions.trim()
+	if (!compose.accountId || !trimmed) return
 	useComposeStore.setState({ aiWriting: true })
 	try {
-		const requestId = await AIService.ComposeInstructed(
-			compose.accountId,
-			compose.replyToMessageId,
-			instructions.trim()
-		)
+		const requestId = await AIService.ComposeInstructed({
+			accountId: compose.accountId,
+			replyToMessageId: compose.replyToMessageId,
+			instructions: trimmed,
+			currentDraft: compose.body,
+			priorInstructions: compose.aiInstructionHistory,
+		})
 		let draft = ""
 		registerHandler(requestId, (chunk) => {
 			if (chunk.error) {
@@ -275,11 +278,14 @@ export async function composeFromInstructions(instructions: string) {
 				return
 			}
 			if (chunk.done) {
-				useComposeStore.setState({ aiWriting: false })
+				useComposeStore.setState((s) => ({
+					aiWriting: false,
+					aiInstructionHistory: [...s.aiInstructionHistory, trimmed],
+				}))
 				return
 			}
 			draft += chunk.chunk
-			setComposeField("body", base ? `${draft}\n${base}` : draft)
+			setComposeField("body", draft)
 		})
 	} catch (raw: unknown) {
 		toast.error(raw instanceof Error ? raw.message : String(raw))

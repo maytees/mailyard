@@ -124,20 +124,32 @@ func (s *Service) DraftReply(ctx context.Context, accountID, threadID string) (s
 	)
 }
 
+// ComposeRequest is one turn of the compose conversation: fresh dictation,
+// or a revision of the draft the composer currently holds.
+type ComposeRequest struct {
+	AccountID        string `json:"accountId"`
+	ReplyToMessageID int64  `json:"replyToMessageId"`
+	Instructions     string `json:"instructions"`
+	// CurrentDraft is what's in the body right now ("" = start fresh).
+	CurrentDraft string `json:"currentDraft"`
+	// PriorInstructions are earlier dictations for this draft, oldest first.
+	PriorInstructions []string `json:"priorInstructions"`
+}
+
 // ComposeInstructed streams an email body written strictly from the user's
-// instructions. replyToMessageID (0 for fresh mail) pulls in the thread as
-// context so replies reference the right things — but the instructions alone
-// decide what the email says.
-func (s *Service) ComposeInstructed(ctx context.Context, accountID string, replyToMessageID int64, instructions string) (string, error) {
-	account, err := s.Store.GetAccount(ctx, accountID)
+// instructions. With a current draft, the instructions revise it — the model
+// decides whether that means editing or replacing, and always streams the
+// complete new email.
+func (s *Service) ComposeInstructed(ctx context.Context, req ComposeRequest) (string, error) {
+	account, err := s.Store.GetAccount(ctx, req.AccountID)
 	if err != nil {
 		return "", err
 	}
 	sender := s.senderName(ctx, account)
 
 	threadContext := ""
-	if replyToMessageID != 0 {
-		if message, err := s.Store.GetMessage(ctx, replyToMessageID); err == nil {
+	if req.ReplyToMessageID != 0 {
+		if message, err := s.Store.GetMessage(ctx, req.ReplyToMessageID); err == nil {
 			if text, err := s.threadText(ctx, message.AccountID, message.ThreadID); err == nil {
 				threadContext = text
 			}
@@ -158,18 +170,30 @@ func (s *Service) ComposeInstructed(ctx context.Context, accountID string, reply
 			"- The email's length mirrors the instructions: a one-line instruction "+
 			"means a one-or-two-sentence email.\n"+
 			"- Plain text only: no subject line, no markdown, no commentary.\n"+
+			"- When a current draft is provided, the new instructions revise it: "+
+			"apply them as an edit when they refine the draft (\"make it shorter\", "+
+			"\"change Friday to Monday\", \"add a line about X\") and as a full "+
+			"replacement when they describe different content. Either way, output "+
+			"the COMPLETE new email — never a fragment, diff, or a second email "+
+			"stacked onto the old one. Preserve quoted or forwarded content below "+
+			"the message unless instructed otherwise.\n"+
 			"- When a thread is provided, use it only for context (names, tone, "+
 			"what's being referred to) — the instructions still decide the content.\n"+
 			emailShapeRules(sender),
 		account.DisplayName, account.Email)
 
-	instructions = "Write an email that says the following (dictation, not a message to you):\n" + instructions
-
-	prompt := instructions
+	prompt := "New dictation from the sender (not a message to you):\n" + req.Instructions
+	if req.CurrentDraft != "" {
+		prompt += "\n\nThe current draft, to revise per the dictation:\n" + req.CurrentDraft
+	}
+	if len(req.PriorInstructions) > 0 {
+		prompt += "\n\nEarlier dictation for this draft, oldest first:\n- " +
+			strings.Join(req.PriorInstructions, "\n- ")
+	}
 	if threadContext != "" {
 		prompt += "\n\nThe thread being replied to (context only):\n" + threadContext
 	}
-	return s.streamRequest(system, prompt, 500, nil)
+	return s.streamRequest(system, prompt, 600, nil)
 }
 
 // Rewrite streams a reworked version of draft text in the requested tone.

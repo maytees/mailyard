@@ -3,6 +3,7 @@
 
 export type {
     ActionItem,
+    ComposeRequest,
     Config,
     StreamChunk,
     TriageResult

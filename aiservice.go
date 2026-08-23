@@ -73,12 +73,12 @@ func (a *AIService) DraftReply(ctx context.Context, accountID, threadID string) 
 	return service.DraftReply(ctx, accountID, threadID)
 }
 
-func (a *AIService) ComposeInstructed(ctx context.Context, accountID string, replyToMessageID int64, instructions string) (string, error) {
+func (a *AIService) ComposeInstructed(ctx context.Context, req ai.ComposeRequest) (string, error) {
 	service, err := a.svc()
 	if err != nil {
 		return "", err
 	}
-	return service.ComposeInstructed(ctx, accountID, replyToMessageID, instructions)
+	return service.ComposeInstructed(ctx, req)
 }
 
 func (a *AIService) Rewrite(ctx context.Context, text, tone string) (string, error) {

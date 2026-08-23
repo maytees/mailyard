@@ -33,6 +33,9 @@ interface ComposeState {
 	draftStatus: "" | "saving" | "saved"
 	/** True while AI is streaming into the body (caret + button feedback). */
 	aiWriting: boolean
+	/** Earlier Write-with-AI dictations for this draft, oldest first — the
+	 * model uses them to decide edit vs. replace on the next instruction. */
+	aiInstructionHistory: string[]
 	sending: boolean
 	error: string
 }
@@ -52,6 +55,7 @@ const emptyDraft = {
 	draftId: 0,
 	draftStatus: "" as const,
 	aiWriting: false,
+	aiInstructionHistory: [] as string[],
 	sending: false,
 	error: "",
 }

@@ -236,14 +236,7 @@ function ComposeInner({ header }: { header: React.ReactNode }) {
 						disabled={!aiInstructions.trim() || state.aiWriting}
 						onClick={writeWithAI}
 					>
-						{state.aiWriting ? (
-							<span className="flex flex-row items-center gap-1">
-								Writing
-								<StreamingCaret />
-							</span>
-						) : (
-							"Write"
-						)}
+						{state.aiWriting ? "Writing…" : "Write"}
 					</Button>
 				</div>
 

@@ -14,6 +14,26 @@ export interface ActionItem {
 }
 
 /**
+ * ComposeRequest is one turn of the compose conversation: fresh dictation,
+ * or a revision of the draft the composer currently holds.
+ */
+export interface ComposeRequest {
+    "accountId": string;
+    "replyToMessageId": number;
+    "instructions": string;
+
+    /**
+     * CurrentDraft is what's in the body right now ("" = start fresh).
+     */
+    "currentDraft": string;
+
+    /**
+     * PriorInstructions are earlier dictations for this draft, oldest first.
+     */
+    "priorInstructions": string[] | null;
+}
+
+/**
  * Config is the user-visible AI configuration (the key itself never leaves
  * the keychain — only whether one exists).
  */
