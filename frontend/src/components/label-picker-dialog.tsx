@@ -63,7 +63,8 @@ export function LabelPickerDialog() {
 				<DialogHeader>
 					<DialogTitle>Set label</DialogTitle>
 				</DialogHeader>
-				<div className="-mx-1 flex max-h-72 flex-col gap-0.5 overflow-y-auto p-1">
+				{/* p-1 keeps focus rings from clipping on the overflow boundary. */}
+				<div className="flex max-h-72 flex-col gap-0.5 overflow-y-auto p-1">
 					{labels.map((label, index) => {
 						const accent = labelAccent(label.color)
 						return (
