@@ -284,6 +284,26 @@ func TestPromptOverrides(t *testing.T) {
 	}
 }
 
+func TestRejectsTemperature(t *testing.T) {
+	// The exact OpenAI reasoning-family refusals (GPT Luna, o3-mini).
+	for _, message := range []string{
+		"Unsupported parameter: 'temperature' is not supported with this model.",
+		"400 Bad Request: unsupported parameter 'temperature'",
+	} {
+		if !rejectsTemperature(errors.New(message)) {
+			t.Fatalf("not detected: %q", message)
+		}
+	}
+	for _, message := range []string{
+		"Unknown parameter: 'think'",
+		"context deadline exceeded",
+	} {
+		if rejectsTemperature(errors.New(message)) {
+			t.Fatalf("false positive: %q", message)
+		}
+	}
+}
+
 func TestParseTriageLabels(t *testing.T) {
 	// Fenced output with a numeric id — both defects seen from small models.
 	raw := "```json\n[{\"id\": 41, \"reason\": \"waiting on reply\", \"priority\": \"high\"},\n" +

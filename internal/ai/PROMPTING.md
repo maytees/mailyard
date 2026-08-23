@@ -76,7 +76,9 @@ A system prompt alone cannot stop injection. The design assumption is "the model
 - Model tiering: small/fast (Haiku-class) for triage and one-line summaries, mid-tier for thread summaries and drafting. Shortwave runs exactly this split in production.
 - Version prompts in the repo like code. Log model + prompt version with each output so regressions are traceable.
 - Evals before polish: ~20-50 real emails from your own accounts per feature, expected outputs, a script that scores accuracy (triage) or spot-checks (summaries). Every source on production prompting says iterate against a test set, not vibes. Triage accuracy target from the Anthropic guide: ~95% before trusting it to act.
-- Temperature: 0 for triage and extraction; default for drafting.
+- Temperature: 0 for triage and extraction; default for drafting. OpenAI's
+  reasoning family (o-series, GPT-5, Luna) rejects the parameter outright —
+  generateDeterministic in features.go retries once without it.
 
 ## Suggested per-feature prompt skeletons (starting points, not final)
 

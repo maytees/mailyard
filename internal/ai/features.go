@@ -10,9 +10,33 @@ import (
 	"time"
 
 	"github.com/zendev-sh/goai"
+	"github.com/zendev-sh/goai/provider"
 
 	"mailyard/internal/store"
 )
+
+// rejectsTemperature detects a model refusing the temperature parameter.
+// OpenAI's reasoning family (o-series, GPT-5, Luna) pins temperature at 1
+// and 400s on anything else: "Unsupported parameter: 'temperature' is not
+// supported with this model."
+func rejectsTemperature(err error) bool {
+	text := strings.ToLower(err.Error())
+	return strings.Contains(text, "temperature") &&
+		(strings.Contains(text, "unsupported") || strings.Contains(text, "not supported"))
+}
+
+// generateDeterministic runs GenerateText at temperature 0 (the extraction/
+// classification policy), retrying once without the parameter for models
+// that reject it. A failed first attempt is a 400 before generation — it
+// costs nothing.
+func generateDeterministic(ctx context.Context, model provider.LanguageModel, base ...goai.Option) (*goai.TextResult, error) {
+	withTemp := append(append([]goai.Option{}, base...), goai.WithTemperature(0))
+	result, err := goai.GenerateText(ctx, model, withTemp...)
+	if err != nil && rejectsTemperature(err) {
+		result, err = goai.GenerateText(ctx, model, base...)
+	}
+	return result, err
+}
 
 // SummarizeThread produces a short plain-text summary (cache-first) and
 // replays it over the streaming channel so the UI has one code path. The
@@ -55,7 +79,6 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 		goai.WithSystem(s.promptText(ctx, "summarize", nil)),
 		goai.WithPrompt(prompt),
 		goai.WithMaxOutputTokens(400),
-		goai.WithTemperature(0),
 	}
 	if config.Provider == "ollama" {
 		// Native-Ollama-only knob: skip qwen-style thinking for short
@@ -70,7 +93,7 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 		// of an eternal caret.
 		background, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		defer cancel()
-		result, err := goai.GenerateText(background, model, options...)
+		result, err := generateDeterministic(background, model, options...)
 		if err != nil {
 			s.emit(StreamChunk{RequestID: requestID, Seq: 0, Done: true, Error: err.Error()})
 			return
@@ -264,12 +287,11 @@ func (s *Service) ActionItems(ctx context.Context, accountID, threadID string) (
 		goai.WithSystem(s.promptText(ctx, "action-items", nil)),
 		goai.WithPrompt(prompt),
 		goai.WithMaxOutputTokens(600),
-		goai.WithTemperature(0),
 	}
 	if config.Provider == "ollama" {
 		options = append(options, goai.WithProviderOptions(map[string]any{"think": false}))
 	}
-	result, err := goai.GenerateText(ctx, model, options...)
+	result, err := generateDeterministic(ctx, model, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -384,12 +406,11 @@ func (s *Service) TriageInbox(ctx context.Context, accountID string) ([]TriageRe
 		goai.WithSystem(s.promptText(ctx, "triage", nil)),
 		goai.WithPrompt(b.String()),
 		goai.WithMaxOutputTokens(2000),
-		goai.WithTemperature(0),
 	}
 	if config.Provider == "ollama" {
 		options = append(options, goai.WithProviderOptions(map[string]any{"think": false}))
 	}
-	result, err := goai.GenerateText(ctx, model, options...)
+	result, err := generateDeterministic(ctx, model, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -471,12 +492,11 @@ func (s *Service) GenerateListSummaries(ctx context.Context, limit int) (int, er
 		goai.WithSystem(s.promptText(ctx, "list-digest", nil)),
 		goai.WithPrompt(b.String()),
 		goai.WithMaxOutputTokens(2000),
-		goai.WithTemperature(0),
 	}
 	if config.Provider == "ollama" {
 		options = append(options, goai.WithProviderOptions(map[string]any{"think": false}))
 	}
-	result, err := goai.GenerateText(ctx, model, options...)
+	result, err := generateDeterministic(ctx, model, options...)
 	if err != nil {
 		return 0, err
 	}
