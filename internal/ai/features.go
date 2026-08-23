@@ -210,9 +210,10 @@ type extractedItem struct {
 	Due   *string `json:"due"`
 }
 
-// parseActionItems reads the model's JSON array defensively: markdown
-// fences stripped and the array located even if a model wraps it in prose.
-func parseActionItems(raw string) ([]extractedItem, error) {
+// jsonArrayText digs the JSON array out of model output defensively:
+// markdown fences stripped and the array located even if a model wraps it
+// in prose.
+func jsonArrayText(raw string) string {
 	text := strings.TrimSpace(raw)
 	text = strings.TrimPrefix(text, "```json")
 	text = strings.TrimPrefix(text, "```")
@@ -225,8 +226,12 @@ func parseActionItems(raw string) ([]extractedItem, error) {
 			text = text[start : end+1]
 		}
 	}
+	return text
+}
+
+func parseActionItems(raw string) ([]extractedItem, error) {
 	var items []extractedItem
-	if err := json.Unmarshal([]byte(text), &items); err != nil {
+	if err := json.Unmarshal([]byte(jsonArrayText(raw)), &items); err != nil {
 		return nil, fmt.Errorf("parse action items: %w", err)
 	}
 	return items, nil
@@ -303,12 +308,35 @@ type TriageResult struct {
 	Reason    string `json:"reason"`
 }
 
-type triageOutput struct {
-	Results []TriageResult `json:"results"`
+// triagedEmail matches the prompt's output schema (reason before priority —
+// the model commits to its rationale before the label). Some models emit the
+// id back as a number, so it decodes both.
+type triagedEmail struct {
+	ID       flexibleID `json:"id"`
+	Reason   string     `json:"reason"`
+	Priority string     `json:"priority"`
+}
+
+type flexibleID string
+
+func (f *flexibleID) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err == nil {
+		*f = flexibleID(s)
+		return nil
+	}
+	var n json.Number
+	if err := json.Unmarshal(b, &n); err != nil {
+		return err
+	}
+	*f = flexibleID(n.String())
+	return nil
 }
 
 // TriageInbox classifies recent unread inbox mail by priority and caches the
-// labels as artifacts (list badges read them back).
+// labels as artifacts (list badges read them back). Full tagged emails, not
+// previews: priority comes from what the body asks of the owner, and the
+// injection framing needs the tag boundaries.
 func (s *Service) TriageInbox(ctx context.Context, accountID string) ([]TriageResult, error) {
 	unreadIDs, err := s.Store.UnreadIDs(ctx, store.ListFilter{
 		AccountID: accountID, FolderRole: store.RoleInbox,
@@ -324,36 +352,73 @@ func (s *Service) TriageInbox(ctx context.Context, accountID string) ([]TriageRe
 	}
 
 	var b strings.Builder
+	requested := map[string]int64{}
 	for _, id := range unreadIDs {
 		message, err := s.Store.GetMessage(ctx, id)
 		if err != nil {
 			continue
 		}
-		fmt.Fprintf(&b, "id=%d | from: %s <%s> | subject: %s | preview: %s\n",
-			message.ID, message.From.Name, message.From.Email,
-			message.Subject, message.Snippet)
+		body := message.Snippet
+		if full, err := s.Store.GetMessageBody(ctx, id); err == nil && full.TextBody != "" {
+			body = CleanBody(full.TextBody)
+		}
+		if len(body) > 600 {
+			body = body[:600] + "…"
+		}
+		idText := strconv.FormatInt(message.ID, 10)
+		requested[idText] = message.ID
+		fmt.Fprintf(&b, "<email id=%q>\n\t<from>%s <%s></from>\n\t<subject>%s</subject>\n\t<body>\n%s\n\t</body>\n</email>\n",
+			idText, message.From.Name, message.From.Email, message.Subject, body)
 	}
+	b.WriteString("\nTriage these emails.")
 
+	config, err := s.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
 	model, _, err := s.model(ctx)
 	if err != nil {
 		return nil, err
 	}
-	result, err := goai.GenerateObject[triageOutput](ctx, model,
+	options := []goai.Option{
 		goai.WithSystem(s.promptText(ctx, "triage", nil)),
 		goai.WithPrompt(b.String()),
-	)
+		goai.WithMaxOutputTokens(2000),
+		goai.WithTemperature(0),
+	}
+	if config.Provider == "ollama" {
+		options = append(options, goai.WithProviderOptions(map[string]any{"think": false}))
+	}
+	result, err := goai.GenerateText(ctx, model, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, item := range result.Object.Results {
-		content := item.Priority + "|" + item.Reason
+	var labeled []triagedEmail
+	if err := json.Unmarshal([]byte(jsonArrayText(result.Text)), &labeled); err != nil {
+		return nil, fmt.Errorf("parse triage labels: %w", err)
+	}
+
+	results := make([]TriageResult, 0, len(labeled))
+	for _, item := range labeled {
+		messageID, ok := requested[string(item.ID)]
+		if !ok {
+			continue // hallucinated or duplicate id — never label the wrong mail
+		}
+		delete(requested, string(item.ID))
+		priority := strings.ToLower(strings.TrimSpace(item.Priority))
+		if priority != "high" && priority != "normal" && priority != "low" {
+			priority = "normal"
+		}
 		if err := s.Store.ArtifactSet(ctx, store.ArtifactTriage,
-			strconv.FormatInt(item.MessageID, 10), content, ""); err != nil {
+			strconv.FormatInt(messageID, 10), priority+"|"+item.Reason, ""); err != nil {
 			return nil, err
 		}
+		results = append(results, TriageResult{
+			MessageID: messageID, Priority: priority, Reason: item.Reason,
+		})
 	}
-	return result.Object.Results, nil
+	return results, nil
 }
 
 // SuggestUnsubscribes is heuristic (List-Unsubscribe headers + sender

@@ -96,6 +96,14 @@ Aligned already:
   Gmail-spec examples, <thread>/<draft>/<input> user turn, revision
   semantics, thread-as-context-never-instructions. Voice matching from
   sent mail still pending (below).
+- Triage (prompts/triage.md): priority defined by what the email
+  requires of the owner, never by sender urgency language (the
+  exploitable rule — promos and injection both manufacture urgency);
+  "normal" defined positively, not as leftovers; reason-before-priority
+  JSON array (cheap reasoning-then-classify); scarce-high tiebreak;
+  full tagged <email id> bodies (CleanBody, capped), temp 0, defensive
+  parse (fences, numeric ids, unknown-id drop so a hallucinated id
+  never labels the wrong mail, bad priority clamps to normal).
 - Action items (prompts/action-items.md): definition of an action item,
   open-as-of-latest-message rule (handled asks excluded), strict JSON
   schema parsed defensively in Go, temp 0, tagged <owner>/<thread> turn.
@@ -121,16 +129,16 @@ Aligned already:
 - One prompt per feature, versioned in repo (prompts/*.md), user-overridable.
 
 Pending (waiting on per-feature passes):
-- Triage: reasoning-then-label, category definitions, temp 0, few-shot edge
-  cases, tagged input.
 - Compose voice matching: last-N sent emails to this recipient/domain via
   SQL as style examples in the user turn; anti-LLM-tell rules.
 - Reply intent upgrades (from the prompt notes): optional hint field
   ("say yes", "push back") layered on the same prompt, or three-variant
   accept/decline/defer generation.
-- List digests: same treatment. Triage: reasoning-then-label etc. (above).
+- List digests: same treatment.
 - Todo/calendar surface over the action_items table (global list, dates).
 - Sanitization pass: zero-width/bidi/control chars, HTML comments,
   CSS-hidden text.
 - Model tiering (small model for triage/digests) and prompt-version logging.
-- Evals against a real-mail test set.
+- Evals against a real-mail test set — triage first (runs on every
+  sync; ~50 own-inbox emails with expected labels and a diff script
+  turns definition tuning mechanical).

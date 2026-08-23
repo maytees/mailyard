@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -280,6 +281,22 @@ func TestPromptOverrides(t *testing.T) {
 	// Unknown ids are rejected.
 	if err := service.SetPrompt(ctx, "nope", "x"); err == nil {
 		t.Fatal("unknown prompt accepted")
+	}
+}
+
+func TestParseTriageLabels(t *testing.T) {
+	// Fenced output with a numeric id — both defects seen from small models.
+	raw := "```json\n[{\"id\": 41, \"reason\": \"waiting on reply\", \"priority\": \"high\"},\n" +
+		"{\"id\": \"42\", \"reason\": \"newsletter\", \"priority\": \"low\"}]\n```"
+	var labeled []triagedEmail
+	if err := json.Unmarshal([]byte(jsonArrayText(raw)), &labeled); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(labeled) != 2 || labeled[0].ID != "41" || labeled[1].ID != "42" {
+		t.Fatalf("ids wrong: %+v", labeled)
+	}
+	if labeled[0].Priority != "high" || labeled[1].Priority != "low" {
+		t.Fatalf("priorities wrong: %+v", labeled)
 	}
 }
 
