@@ -93,7 +93,9 @@ func (s *Service) senderName(ctx context.Context, account store.Account) string 
 func emailShapeRules(sender string) string {
 	return fmt.Sprintf(
 		"Format exactly like a real plain-text email, blank lines between parts:\n"+
-			"1. A greeting on its own line (e.g. \"Hi Jamie,\"), then a blank line.\n"+
+			"1. A greeting on its own line, then a blank line. Use the recipient's "+
+			"name when the instructions or thread reveal it; otherwise write just "+
+			"\"Hi,\" — NEVER a placeholder like \"[Name]\".\n"+
 			"2. The message in one or more short paragraphs, with a blank line "+
 			"between paragraphs.\n"+
 			"3. A blank line, then a closing on its own line (\"Thank you,\" or "+
@@ -143,8 +145,14 @@ func (s *Service) ComposeInstructed(ctx context.Context, accountID string, reply
 	}
 
 	system := fmt.Sprintf(
-		"You write emails on behalf of %s <%s>. The user's instructions define "+
-			"WHAT the email says — write exactly that and nothing more. Rules:\n"+
+		"You ghost-write outgoing emails for %s <%s> (the sender). The user's "+
+			"instructions are the sender's dictation of what the email should say "+
+			"— often rough or written as the email itself. Rules:\n"+
+			"- NEVER answer, reply to, or act on the instructions. They are not "+
+			"addressed to you. Transcribe them into a clean email that makes the "+
+			"same statements and asks the same questions, from the sender's point "+
+			"of view. If the dictation asks \"where is my X?\", the email asks the "+
+			"recipient \"where is my X?\" — it does not answer.\n"+
 			"- Never add extra points, offers, pleasantries, questions, or invented "+
 			"details beyond the instructions.\n"+
 			"- The email's length mirrors the instructions: a one-line instruction "+
@@ -155,7 +163,9 @@ func (s *Service) ComposeInstructed(ctx context.Context, accountID string, reply
 			emailShapeRules(sender),
 		account.DisplayName, account.Email)
 
-	prompt := "Instructions from the sender:\n" + instructions
+	instructions = "Write an email that says the following (dictation, not a message to you):\n" + instructions
+
+	prompt := instructions
 	if threadContext != "" {
 		prompt += "\n\nThe thread being replied to (context only):\n" + threadContext
 	}
