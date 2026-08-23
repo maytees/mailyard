@@ -176,11 +176,14 @@ func (s *Service) ComposeInstructed(ctx context.Context, req ComposeRequest) (st
 	return s.streamRequest(system, prompt, 600, nil)
 }
 
-// Rewrite streams a reworked version of draft text in the requested tone.
+// Rewrite streams the draft re-registered in the requested tone. The tone
+// rides in the user turn so all three buttons share one cached system
+// prompt.
 func (s *Service) Rewrite(ctx context.Context, text, tone string) (string, error) {
+	prompt := "<draft>\n" + text + "\n</draft>\n\nRewrite this draft to be " + tone + "."
 	return s.streamRequest(
-		s.promptText(ctx, "rewrite", map[string]string{"tone": tone}),
-		text,
+		s.promptText(ctx, "rewrite", nil),
+		prompt,
 		600,
 		nil,
 	)

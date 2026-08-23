@@ -235,17 +235,17 @@ func TestPromptOverrides(t *testing.T) {
 	ctx := context.Background()
 
 	// Defaults resolve with substitution.
-	text := service.promptText(ctx, "rewrite", map[string]string{"tone": "formal"})
-	if !strings.Contains(text, "to be formal") {
+	text := service.promptText(ctx, "translate", map[string]string{"language": "French"})
+	if !strings.Contains(text, "into French") {
 		t.Fatalf("default template not filled: %q", text)
 	}
 
 	// Overrides win and substitute too.
-	if err := service.SetPrompt(ctx, "rewrite", "Rewrite it {tone}, cowboy style."); err != nil {
+	if err := service.SetPrompt(ctx, "translate", "Translate to {language}, cowboy style."); err != nil {
 		t.Fatalf("set prompt: %v", err)
 	}
-	text = service.promptText(ctx, "rewrite", map[string]string{"tone": "formal"})
-	if text != "Rewrite it formal, cowboy style." {
+	text = service.promptText(ctx, "translate", map[string]string{"language": "French"})
+	if text != "Translate to French, cowboy style." {
 		t.Fatalf("override ignored: %q", text)
 	}
 
@@ -256,7 +256,7 @@ func TestPromptOverrides(t *testing.T) {
 	}
 	found := false
 	for _, prompt := range prompts {
-		if prompt.ID == "rewrite" {
+		if prompt.ID == "translate" {
 			found = true
 			if prompt.Custom == "" {
 				t.Fatal("override not reported")
@@ -266,12 +266,12 @@ func TestPromptOverrides(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatal("rewrite prompt missing from list")
+		t.Fatal("translate prompt missing from list")
 	}
-	if err := service.SetPrompt(ctx, "rewrite", ""); err != nil {
+	if err := service.SetPrompt(ctx, "translate", ""); err != nil {
 		t.Fatalf("reset: %v", err)
 	}
-	if text := service.promptText(ctx, "rewrite", map[string]string{"tone": "x"}); !strings.Contains(text, "Keep the meaning") {
+	if text := service.promptText(ctx, "translate", map[string]string{"language": "x"}); !strings.Contains(text, "Preserve tone") {
 		t.Fatalf("reset didn't restore default: %q", text)
 	}
 

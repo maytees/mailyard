@@ -64,11 +64,11 @@ var PromptDefs = []PromptDef{
 		Default:      defaultPrompt("draft-reply.md"),
 	},
 	{
-		ID:           "rewrite",
-		Title:        "Rewrite draft",
-		Description:  "System prompt for the tone buttons (concise/friendly/formal).",
-		Placeholders: []string{"tone"},
-		Default:      defaultPrompt("rewrite.md"),
+		ID:    "rewrite",
+		Title: "Rewrite draft",
+		Description: "System prompt for the tone buttons. The draft arrives in " +
+			"<draft> tags; the tone is named in the user turn.",
+		Default: defaultPrompt("rewrite.md"),
 	},
 	{
 		ID:           "translate",
