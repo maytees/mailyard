@@ -85,17 +85,17 @@ func (s *Service) Config(ctx context.Context) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	_, keyErr := s.Vault.Get(secrets.AIKeyName)
+	_, hasKey := s.apiKey(ctx, providerName)
 	return Config{
 		Provider:      providerName,
 		Model:         model,
-		HasKey:        keyErr == nil,
+		HasKey:        hasKey,
 		ListSummaries: listSummaries == "true",
 	}, nil
 }
 
 // SetConfig updates provider/model/opt-ins; an empty apiKey keeps the
-// existing credential.
+// existing credential. The key lands in that provider's keychain slot.
 func (s *Service) SetConfig(ctx context.Context, providerName, model string, listSummaries bool, apiKey string) error {
 	if err := s.Store.SettingSet(ctx, SettingProvider, providerName); err != nil {
 		return err
@@ -107,9 +107,73 @@ func (s *Service) SetConfig(ctx context.Context, providerName, model string, lis
 		return err
 	}
 	if apiKey != "" {
-		if err := s.Vault.Set(secrets.AIKeyName, apiKey); err != nil {
+		if err := s.Vault.Set(aiKeyName(providerName), apiKey); err != nil {
 			return fmt.Errorf("store API key in keychain: %w", err)
 		}
+	}
+	return nil
+}
+
+// ---- per-provider API keys -------------------------------------------------
+
+// aiKeyName is a provider's keychain slot ("ai-api-key-openai"). The legacy
+// single-key slot (secrets.AIKeyName) predates per-provider keys and is
+// still honored for the main provider.
+func aiKeyName(providerName string) string {
+	return secrets.AIKeyName + "-" + providerName
+}
+
+// apiKey resolves a provider's credential: its own slot first, then the
+// legacy slot when the provider is the configured main one (whoever was
+// main owned the old single key).
+func (s *Service) apiKey(ctx context.Context, providerName string) (string, bool) {
+	if key, err := s.Vault.Get(aiKeyName(providerName)); err == nil && key != "" {
+		return key, true
+	}
+	main, _ := s.Store.SettingGet(ctx, SettingProvider, DefaultProvider)
+	if providerName == main {
+		if key, err := s.Vault.Get(secrets.AIKeyName); err == nil && key != "" {
+			return key, true
+		}
+	}
+	return "", false
+}
+
+// ProviderKey reports whether one provider has a stored credential (the key
+// itself never leaves the keychain).
+type ProviderKey struct {
+	Provider string `json:"provider"`
+	HasKey   bool   `json:"hasKey"`
+}
+
+// ListProviderKeys covers the cloud providers; ollama is local and keyless.
+func (s *Service) ListProviderKeys(ctx context.Context) ([]ProviderKey, error) {
+	keys := []ProviderKey{}
+	for _, name := range providerNames {
+		if name == "ollama" {
+			continue
+		}
+		_, has := s.apiKey(ctx, name)
+		keys = append(keys, ProviderKey{Provider: name, HasKey: has})
+	}
+	return keys, nil
+}
+
+// SetProviderKey stores one provider's API key; empty clears it (including
+// the legacy slot when the provider is main, so cleared means cleared).
+func (s *Service) SetProviderKey(ctx context.Context, providerName, key string) error {
+	if providerName == "ollama" || !slices.Contains(providerNames, providerName) {
+		return fmt.Errorf("provider %q does not take an API key", providerName)
+	}
+	if key == "" {
+		_ = s.Vault.Delete(aiKeyName(providerName))
+		if main, _ := s.Store.SettingGet(ctx, SettingProvider, DefaultProvider); main == providerName {
+			_ = s.Vault.Delete(secrets.AIKeyName)
+		}
+		return nil
+	}
+	if err := s.Vault.Set(aiKeyName(providerName), key); err != nil {
+		return fmt.Errorf("store API key in keychain: %w", err)
 	}
 	return nil
 }
@@ -120,14 +184,14 @@ func (s *Service) model(ctx context.Context) (provider.LanguageModel, string, er
 	if err != nil {
 		return nil, "", err
 	}
-	model, err := s.buildModel(config.Provider, config.Model)
+	model, err := s.buildModel(ctx, config.Provider, config.Model)
 	return model, config.Model, err
 }
 
-func (s *Service) buildModel(providerName, modelName string) (provider.LanguageModel, error) {
-	key, keyErr := s.Vault.Get(secrets.AIKeyName)
-	if keyErr != nil && providerName != "ollama" {
-		return nil, fmt.Errorf("no AI API key configured — add one in Settings (⌘ ,)")
+func (s *Service) buildModel(ctx context.Context, providerName, modelName string) (provider.LanguageModel, error) {
+	key, hasKey := s.apiKey(ctx, providerName)
+	if !hasKey && providerName != "ollama" {
+		return nil, fmt.Errorf("no %s API key configured — add one in Settings (⌘ ,)", providerName)
 	}
 
 	switch providerName {
@@ -198,6 +262,13 @@ func (s *Service) SetModelRule(ctx context.Context, feature, providerName, model
 	if strings.TrimSpace(modelName) == "" {
 		return fmt.Errorf("model name is empty")
 	}
+	// Catch the missing-credential case at rule-creation time, not on the
+	// first background run where the error would be invisible.
+	if providerName != "ollama" {
+		if _, has := s.apiKey(ctx, providerName); !has {
+			return fmt.Errorf("add your %s API key in Settings first", providerName)
+		}
+	}
 	raw, err := json.Marshal(ModelRule{Provider: providerName, Model: modelName})
 	if err != nil {
 		return err
@@ -213,7 +284,7 @@ func (s *Service) modelFor(ctx context.Context, feature string) (provider.Langua
 	if raw, err := s.Store.SettingGet(ctx, modelRulePrefix+feature, ""); err == nil && raw != "" {
 		var rule ModelRule
 		if json.Unmarshal([]byte(raw), &rule) == nil && rule.Provider != "" && rule.Model != "" {
-			model, err := s.buildModel(rule.Provider, rule.Model)
+			model, err := s.buildModel(ctx, rule.Provider, rule.Model)
 			return model, rule.Provider, rule.Model, err
 		}
 	}
@@ -221,7 +292,7 @@ func (s *Service) modelFor(ctx context.Context, feature string) (provider.Langua
 	if err != nil {
 		return nil, "", "", err
 	}
-	model, err := s.buildModel(config.Provider, config.Model)
+	model, err := s.buildModel(ctx, config.Provider, config.Model)
 	return model, config.Provider, config.Model, err
 }
 

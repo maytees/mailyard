@@ -6,6 +6,7 @@ export type {
     Config,
     ModelRule,
     PromptInfo,
+    ProviderKey,
     StreamChunk,
     TriageResult
 } from "./models.js";

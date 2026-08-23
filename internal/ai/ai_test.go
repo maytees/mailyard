@@ -101,12 +101,67 @@ func TestConfigDefaultsAndRoundTrip(t *testing.T) {
 		t.Fatalf("round trip lost data: %+v", config)
 	}
 
-	// Empty key keeps the stored one.
+	// Empty key keeps the stored one (now in the provider's own slot).
 	if err := service.SetConfig(ctx, "openai", "gpt-4o", false, ""); err != nil {
 		t.Fatalf("re-set: %v", err)
 	}
-	if key, _ := service.Vault.Get("ai-api-key"); key != "sk-test" {
+	if key, _ := service.Vault.Get("ai-api-key-openai"); key != "sk-test" {
 		t.Fatalf("empty key overwrote credential: %q", key)
+	}
+}
+
+func TestPerProviderKeys(t *testing.T) {
+	service, _ := testService(t)
+	ctx := context.Background()
+
+	// Legacy single key belongs to the main provider only.
+	_ = service.Vault.Set(secrets.AIKeyName, "legacy-key")
+	if _, has := service.apiKey(ctx, DefaultProvider); !has {
+		t.Fatal("legacy key not honored for main provider")
+	}
+	if _, has := service.apiKey(ctx, "google"); has {
+		t.Fatal("legacy key leaked to another provider")
+	}
+
+	// A rule on a keyless cloud provider is rejected with a clear message.
+	err := service.SetModelRule(ctx, "triage", "google", "gemini-2.5-flash")
+	if err == nil || !strings.Contains(err.Error(), "google API key") {
+		t.Fatalf("keyless rule accepted or unclear: %v", err)
+	}
+	// Ollama rules never need a key.
+	if err := service.SetModelRule(ctx, "triage", "ollama", "qwen3:8b"); err != nil {
+		t.Fatalf("ollama rule: %v", err)
+	}
+
+	// Storing a google key unlocks it; keys list reports per provider.
+	if err := service.SetProviderKey(ctx, "google", "g-key"); err != nil {
+		t.Fatalf("set key: %v", err)
+	}
+	if err := service.SetModelRule(ctx, "list-digest", "google", "gemini-2.5-flash"); err != nil {
+		t.Fatalf("rule after key: %v", err)
+	}
+	keys, err := service.ListProviderKeys(ctx)
+	if err != nil || len(keys) != 3 {
+		t.Fatalf("keys: %+v err=%v", keys, err)
+	}
+	byProvider := map[string]bool{}
+	for _, k := range keys {
+		byProvider[k.Provider] = k.HasKey
+	}
+	if !byProvider["google"] || !byProvider[DefaultProvider] || byProvider["openai"] {
+		t.Fatalf("hasKey wrong: %+v", byProvider)
+	}
+
+	// Clearing the main provider's key clears the legacy slot too.
+	if err := service.SetProviderKey(ctx, DefaultProvider, ""); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	if _, has := service.apiKey(ctx, DefaultProvider); has {
+		t.Fatal("cleared key still resolves via legacy slot")
+	}
+	// Ollama takes no key.
+	if err := service.SetProviderKey(ctx, "ollama", "x"); err == nil {
+		t.Fatal("ollama key accepted")
 	}
 }
 

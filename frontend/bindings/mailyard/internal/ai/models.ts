@@ -63,6 +63,15 @@ export interface PromptInfo {
 }
 
 /**
+ * ProviderKey reports whether one provider has a stored credential (the key
+ * itself never leaves the keychain).
+ */
+export interface ProviderKey {
+    "provider": string;
+    "hasKey": boolean;
+}
+
+/**
  * StreamChunk is one event on the "ai:stream" channel. Seq orders chunks:
  * Wails dispatches each emitted event on its own goroutine, so back-to-back
  * emits can arrive out of order — the frontend reassembles by Seq.

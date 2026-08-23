@@ -123,6 +123,101 @@ function GeneralSection() {
 	)
 }
 
+// ---- provider API keys -----------------------------------------------------
+
+const KEYED_PROVIDERS = ["anthropic", "openai", "google"] as const
+
+/** Which cloud providers have a key saved — shared by the tab bar and the
+ * rule form's missing-key warning. */
+function useProviderKeys() {
+	const [hasKey, setHasKey] = React.useState<Record<string, boolean>>({})
+	const load = React.useCallback(() => {
+		AIService.ListProviderKeys()
+			.then((keys) => {
+				const map: Record<string, boolean> = {}
+				for (const key of keys ?? []) map[key.provider] = key.hasKey
+				setHasKey(map)
+			})
+			.catch(() => {})
+	}, [])
+	React.useEffect(load, [load])
+	return { hasKey, reload: load }
+}
+
+/** One keychain slot per cloud provider, behind a small tab bar. */
+function ProviderKeysBlock({
+	hasKey,
+	reload,
+}: {
+	hasKey: Record<string, boolean>
+	reload: () => void
+}) {
+	const [tab, setTab] = React.useState<string>("anthropic")
+	const [key, setKey] = React.useState("")
+	const [busy, setBusy] = React.useState(false)
+
+	const save = async () => {
+		setBusy(true)
+		try {
+			await AIService.SetProviderKey(tab, key)
+			setKey("")
+			reload()
+			await loadAIConfig() // hasKey on the main config may have changed
+			toast.success(key ? `${tab} key saved to the keychain` : `${tab} key removed`)
+		} catch (raw: unknown) {
+			toast.error(errorText(raw))
+		} finally {
+			setBusy(false)
+		}
+	}
+
+	return (
+		<div className="flex flex-col gap-2">
+			<span className="text-xs text-muted-foreground">
+				API keys — one per provider, stored in the macOS keychain
+			</span>
+			<div className="flex flex-row gap-1">
+				{KEYED_PROVIDERS.map((name) => (
+					<button
+						key={name}
+						type="button"
+						onClick={() => {
+							setTab(name)
+							setKey("")
+						}}
+						className={cn(
+							"cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+							tab === name
+								? "border-foreground/30 bg-muted text-foreground"
+								: "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+						)}
+					>
+						{name}
+						{hasKey[name] && <span className="ml-1 text-primary">●</span>}
+					</button>
+				))}
+			</div>
+			<div className="flex flex-row gap-2">
+				<Input
+					type="password"
+					value={key}
+					onChange={(e) => setKey(e.target.value)}
+					placeholder={
+						hasKey[tab] ? "•••••••• (saved — enter to replace)" : `${tab} API key`
+					}
+				/>
+				<Button
+					size="sm"
+					disabled={busy || (!key.trim() && !hasKey[tab])}
+					onClick={() => void save()}
+				>
+					{key.trim() ? "Save" : hasKey[tab] ? "Remove" : "Save"}
+				</Button>
+			</div>
+		</div>
+	)
+}
+
 // ---- model rules -----------------------------------------------------------
 
 type ModelRule = {
@@ -137,13 +232,16 @@ type ModelRule = {
  * model (e.g. digests on local qwen); everything without a rule uses the
  * main model above.
  */
-function ModelRulesBlock() {
+function ModelRulesBlock({ hasKey }: { hasKey: Record<string, boolean> }) {
 	const [rules, setRules] = React.useState<ModelRule[]>([])
 	const [actions, setActions] = React.useState<PromptInfo[]>([])
 	const [feature, setFeature] = React.useState("")
 	const [provider, setProvider] = React.useState("ollama")
 	const [model, setModel] = React.useState(PROVIDER_DEFAULT_MODEL.ollama)
 	const [busy, setBusy] = React.useState(false)
+
+	// A cloud rule without a stored key would only fail invisibly later.
+	const missingKey = provider !== "ollama" && !hasKey[provider]
 
 	const load = React.useCallback(() => {
 		AIService.ListModelRules().then((r) => setRules(r ?? [])).catch(() => {})
@@ -241,12 +339,18 @@ function ModelRulesBlock() {
 					/>
 					<Button
 						size="sm"
-						disabled={busy || !selected || !model.trim()}
+						disabled={busy || !selected || !model.trim() || missingKey}
 						onClick={() => void add()}
 					>
 						Add rule
 					</Button>
 				</div>
+			)}
+			{missingKey && (
+				<p className="text-xs text-destructive">
+					No {provider} API key saved — add one in the API keys tabs above
+					first.
+				</p>
 			)}
 		</div>
 	)
@@ -601,9 +705,9 @@ const PROVIDER_DEFAULT_MODEL: Record<string, string> = {
 
 function AISection() {
 	const config = useAIStore((s) => s.config)
+	const providerKeys = useProviderKeys()
 	const [provider, setProvider] = React.useState("")
 	const [model, setModel] = React.useState("")
-	const [apiKey, setApiKey] = React.useState("")
 	const [listSummaries, setListSummaries] = React.useState(false)
 	const [busy, setBusy] = React.useState(false)
 	const [loaded, setLoaded] = React.useState(false)
@@ -620,9 +724,9 @@ function AISection() {
 	const save = async () => {
 		setBusy(true)
 		try {
-			await AIService.SetConfig(provider, model, listSummaries, apiKey)
+			// Keys live in the per-provider tabs below; none rides along here.
+			await AIService.SetConfig(provider, model, listSummaries, "")
 			await loadAIConfig()
-			setApiKey("")
 			toast.success("AI settings saved")
 		} catch (raw: unknown) {
 			toast.error(errorText(raw))
@@ -660,23 +764,14 @@ function AISection() {
 					<Input value={model} onChange={(e) => setModel(e.target.value)} />
 				</label>
 			</div>
-			{provider === "ollama" ? (
+			{provider === "ollama" && (
 				<p className="text-xs text-muted-foreground">
 					Runs locally through Ollama (localhost:11434) — no API key, and
 					nothing leaves your machine. Pull models with{" "}
 					<code className="rounded bg-muted px-1">ollama pull qwen3:8b</code>.
 				</p>
-			) : (
-				<label className="flex flex-col gap-1.5">
-					<span className="text-xs text-muted-foreground">API key</span>
-					<Input
-						type="password"
-						value={apiKey}
-						onChange={(e) => setApiKey(e.target.value)}
-						placeholder={config?.hasKey ? "•••••••• (saved in keychain)" : "sk-…"}
-					/>
-				</label>
 			)}
+			<ProviderKeysBlock hasKey={providerKeys.hasKey} reload={providerKeys.reload} />
 			<label className="flex cursor-pointer flex-row items-center gap-2 text-sm">
 				<input
 					type="checkbox"
@@ -686,7 +781,7 @@ function AISection() {
 				/>
 				AI digests in the mail list (replaces snippets, uses tokens)
 			</label>
-			<ModelRulesBlock />
+			<ModelRulesBlock hasKey={providerKeys.hasKey} />
 			<div className="flex flex-row gap-2">
 				<Button size="sm" disabled={busy} onClick={() => void save()}>
 					{busy ? "Saving…" : "Save AI settings"}

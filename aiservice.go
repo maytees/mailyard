@@ -57,6 +57,24 @@ func (a *AIService) SetConfig(ctx context.Context, provider, model string, listS
 	return nil
 }
 
+// ListProviderKeys reports which cloud providers have a stored API key.
+func (a *AIService) ListProviderKeys(ctx context.Context) ([]ai.ProviderKey, error) {
+	service, err := a.svc()
+	if err != nil {
+		return nil, err
+	}
+	return service.ListProviderKeys(ctx)
+}
+
+// SetProviderKey stores (or, with an empty key, clears) one provider's key.
+func (a *AIService) SetProviderKey(ctx context.Context, provider, key string) error {
+	service, err := a.svc()
+	if err != nil {
+		return err
+	}
+	return service.SetProviderKey(ctx, provider, key)
+}
+
 // ListModelRules returns the per-feature model overrides.
 func (a *AIService) ListModelRules(ctx context.Context) ([]ai.ModelRule, error) {
 	service, err := a.svc()

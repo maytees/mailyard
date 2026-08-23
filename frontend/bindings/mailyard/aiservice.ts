@@ -60,6 +60,13 @@ export function ListPrompts(): $CancellablePromise<ai$0.PromptInfo[] | null> {
 }
 
 /**
+ * ListProviderKeys reports which cloud providers have a stored API key.
+ */
+export function ListProviderKeys(): $CancellablePromise<ai$0.ProviderKey[] | null> {
+    return $Call.ByID(2368949186);
+}
+
+/**
  * MessageArtifacts bulk-fetches per-message AI outputs for list rendering
  * (kind: "msg-summary" digests or "triage" labels), keyed by message id.
  */
@@ -94,6 +101,13 @@ export function SetModelRule(feature: string, provider: string, model: string): 
  */
 export function SetPrompt(id: string, custom: string): $CancellablePromise<void> {
     return $Call.ByID(3495695763, id, custom);
+}
+
+/**
+ * SetProviderKey stores (or, with an empty key, clears) one provider's key.
+ */
+export function SetProviderKey(provider: string, key: string): $CancellablePromise<void> {
+    return $Call.ByID(3692523219, provider, key);
 }
 
 export function SuggestUnsubscribes(): $CancellablePromise<store$0.UnsubscribeCandidate[] | null> {
