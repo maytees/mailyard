@@ -271,7 +271,7 @@ function ThreadMessage({
 			</div>
 
 			<div className="mt-4">
-				<MessageBody messageId={entry.id} />
+				<MessageBody messageId={entry.id} senderEmail={entry.from?.email ?? ""} />
 			</div>
 
 			{entry.hasAttachments && <MessageAttachments messageId={entry.id} />}
@@ -280,7 +280,13 @@ function ThreadMessage({
 }
 
 /** Lazily fetches and renders one message's body (HTML preferred). */
-function MessageBody({ messageId }: { messageId: number }) {
+function MessageBody({
+	messageId,
+	senderEmail,
+}: {
+	messageId: number;
+	senderEmail: string;
+}) {
 	const [body, setBody] = React.useState<{
 		html: string;
 		text: string;
@@ -311,7 +317,7 @@ function MessageBody({ messageId }: { messageId: number }) {
 		);
 	}
 	if (body.html) {
-		return <HtmlBody html={body.html} />;
+		return <HtmlBody html={body.html} senderEmail={senderEmail} />;
 	}
 	if (body.text) {
 		return (

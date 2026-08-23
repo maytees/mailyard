@@ -14,6 +14,9 @@ interface SettingsState {
 	/** User-dragged width of the side-panel composer, px. */
 	composeWidth: number
 	setComposeWidth: (width: number) => void
+	/** Sender domains whose remote images load without asking. */
+	trustedImageDomains: string[]
+	trustImageDomain: (domain: string) => void
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -25,6 +28,13 @@ export const useSettingsStore = create<SettingsState>()(
 			setComposeStyle: (composeStyle) => set({ composeStyle }),
 			composeWidth: 672,
 			setComposeWidth: (composeWidth) => set({ composeWidth }),
+			trustedImageDomains: [],
+			trustImageDomain: (domain) =>
+				set((s) => ({
+					trustedImageDomains: s.trustedImageDomains.includes(domain)
+						? s.trustedImageDomains
+						: [...s.trustedImageDomains, domain],
+				})),
 		}),
 		{ name: "settings" } // survives restarts
 	)
