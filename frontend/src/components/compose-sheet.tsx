@@ -13,6 +13,7 @@ import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import * as React from "react"
 
 import { AddressInput } from "@/components/address-input"
+import { StreamingCaret } from "@/components/ai-panel"
 import { Button } from "@/components/ui/button"
 import {
 	Dialog,
@@ -232,19 +233,34 @@ function ComposeInner({ header }: { header: React.ReactNode }) {
 						variant="ghost"
 						size="xs"
 						className="h-6 shrink-0 rounded-full px-2 text-xs text-muted-foreground"
-						disabled={!aiInstructions.trim()}
+						disabled={!aiInstructions.trim() || state.aiWriting}
 						onClick={writeWithAI}
 					>
-						Write
+						{state.aiWriting ? (
+							<span className="flex flex-row items-center gap-1">
+								Writing
+								<StreamingCaret />
+							</span>
+						) : (
+							"Write"
+						)}
 					</Button>
 				</div>
 
-				<Textarea
-					value={state.body}
-					onChange={(e) => setComposeField("body", e.target.value)}
-					placeholder="Write your message…"
-					className="mt-2 min-h-40 flex-1 resize-none rounded-none border-none bg-transparent px-0 focus-visible:ring-0 focus-visible:border-transparent"
-				/>
+				<div className="relative mt-2 flex min-h-40 flex-1 flex-col">
+					{/* Feedback for the dead air before the first token streams in. */}
+					{state.aiWriting && !state.body && (
+						<span className="pointer-events-none absolute top-0.5 left-0">
+							<StreamingCaret />
+						</span>
+					)}
+					<Textarea
+						value={state.body}
+						onChange={(e) => setComposeField("body", e.target.value)}
+						placeholder={state.aiWriting ? "" : "Write your message…"}
+						className="min-h-40 flex-1 resize-none rounded-none border-none bg-transparent px-0 focus-visible:ring-0 focus-visible:border-transparent"
+					/>
+				</div>
 
 				{state.attachments.length > 0 && (
 					<div className="flex flex-row flex-wrap gap-1.5 pb-2">
@@ -314,6 +330,7 @@ function ComposeInner({ header }: { header: React.ReactNode }) {
 									variant="ghost"
 									size="xs"
 									className="h-6 rounded-full px-2 text-xs text-muted-foreground"
+									disabled={state.aiWriting}
 									onClick={() => void rewriteComposeBody(tone)}
 								>
 									{tone}

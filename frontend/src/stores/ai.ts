@@ -228,12 +228,18 @@ export async function draftReplyWithAI(message: Message) {
 	await composeFromMessage(message, "reply")
 	const quoted = useComposeStore.getState().body
 
+	useComposeStore.setState({ aiWriting: true })
 	try {
 		const requestId = await AIService.DraftReply(message.accountId, message.threadId)
 		let draft = ""
 		registerHandler(requestId, (chunk) => {
 			if (chunk.error) {
 				toast.error(chunk.error)
+				useComposeStore.setState({ aiWriting: false })
+				return
+			}
+			if (chunk.done) {
+				useComposeStore.setState({ aiWriting: false })
 				return
 			}
 			draft += chunk.chunk
@@ -241,6 +247,7 @@ export async function draftReplyWithAI(message: Message) {
 		})
 	} catch (raw: unknown) {
 		toast.error(raw instanceof Error ? raw.message : String(raw))
+		useComposeStore.setState({ aiWriting: false })
 	}
 }
 
@@ -253,6 +260,7 @@ export async function composeFromInstructions(instructions: string) {
 	const compose = useComposeStore.getState()
 	if (!compose.accountId || !instructions.trim()) return
 	const base = compose.body
+	useComposeStore.setState({ aiWriting: true })
 	try {
 		const requestId = await AIService.ComposeInstructed(
 			compose.accountId,
@@ -263,6 +271,11 @@ export async function composeFromInstructions(instructions: string) {
 		registerHandler(requestId, (chunk) => {
 			if (chunk.error) {
 				toast.error(chunk.error)
+				useComposeStore.setState({ aiWriting: false })
+				return
+			}
+			if (chunk.done) {
+				useComposeStore.setState({ aiWriting: false })
 				return
 			}
 			draft += chunk.chunk
@@ -270,6 +283,7 @@ export async function composeFromInstructions(instructions: string) {
 		})
 	} catch (raw: unknown) {
 		toast.error(raw instanceof Error ? raw.message : String(raw))
+		useComposeStore.setState({ aiWriting: false })
 	}
 }
 
@@ -277,12 +291,18 @@ export async function composeFromInstructions(instructions: string) {
 export async function rewriteComposeBody(tone: string) {
 	const body = useComposeStore.getState().body
 	if (!body.trim()) return
+	useComposeStore.setState({ aiWriting: true })
 	try {
 		const requestId = await AIService.Rewrite(body, tone)
 		let rewritten = ""
 		registerHandler(requestId, (chunk) => {
 			if (chunk.error) {
 				toast.error(chunk.error)
+				useComposeStore.setState({ aiWriting: false })
+				return
+			}
+			if (chunk.done) {
+				useComposeStore.setState({ aiWriting: false })
 				return
 			}
 			rewritten += chunk.chunk
@@ -290,6 +310,7 @@ export async function rewriteComposeBody(tone: string) {
 		})
 	} catch (raw: unknown) {
 		toast.error(raw instanceof Error ? raw.message : String(raw))
+		useComposeStore.setState({ aiWriting: false })
 	}
 }
 

@@ -107,7 +107,7 @@ function ActionItemList({
 	)
 }
 
-function StreamingCaret() {
+export function StreamingCaret() {
 	return (
 		<motion.span
 			className="ml-0.5 inline-block h-3.5 w-1.5 rounded-xs bg-primary/70 align-middle"

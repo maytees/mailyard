@@ -31,6 +31,8 @@ interface ComposeState {
 	draftId: number
 	/** "" = edited since last save; feeds the footer indicator. */
 	draftStatus: "" | "saving" | "saved"
+	/** True while AI is streaming into the body (caret + button feedback). */
+	aiWriting: boolean
 	sending: boolean
 	error: string
 }
@@ -49,6 +51,7 @@ const emptyDraft = {
 	replyToMessageId: 0,
 	draftId: 0,
 	draftStatus: "" as const,
+	aiWriting: false,
 	sending: false,
 	error: "",
 }
