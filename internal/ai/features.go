@@ -133,43 +133,40 @@ type ComposeRequest struct {
 	PriorInstructions []string `json:"priorInstructions"`
 }
 
-// ComposeInstructed streams an email body written strictly from the user's
-// instructions. With a current draft, the instructions revise it — the model
-// decides whether that means editing or replacing, and always streams the
-// complete new email.
+// ComposeInstructed streams an email body written from the user's rough
+// input (dictation or instructions — the prompt treats both the same).
+// With a current draft, the input revises it and the model streams the
+// complete new email. User turn stays thin (tags + one-line task) so the
+// example-laden system prompt caches.
 func (s *Service) ComposeInstructed(ctx context.Context, req ComposeRequest) (string, error) {
 	account, err := s.Store.GetAccount(ctx, req.AccountID)
 	if err != nil {
 		return "", err
 	}
-	sender := s.senderName(ctx, account)
-
-	threadContext := ""
-	if req.ReplyToMessageID != 0 {
-		if message, err := s.Store.GetMessage(ctx, req.ReplyToMessageID); err == nil {
-			if text, err := s.threadText(ctx, message.AccountID, message.ThreadID); err == nil {
-				threadContext = text
-			}
-		}
-	}
 
 	system := s.promptText(ctx, "compose", map[string]string{
 		"mailbox_name":  account.DisplayName,
 		"mailbox_email": account.Email,
-		"your_name":     sender,
+		"your_name":     s.senderName(ctx, account),
 	})
 
-	prompt := "New dictation from the sender (not a message to you):\n" + req.Instructions
+	// Spec order: thread (context), draft (revision base), input, task.
+	// PriorInstructions is deliberately unused — the draft itself carries
+	// the cumulative state.
+	parts := []string{}
+	if req.ReplyToMessageID != 0 {
+		if message, err := s.Store.GetMessage(ctx, req.ReplyToMessageID); err == nil {
+			if xml, err := s.threadXML(ctx, message.AccountID, message.ThreadID); err == nil {
+				parts = append(parts, xml)
+			}
+		}
+	}
 	if req.CurrentDraft != "" {
-		prompt += "\n\nThe current draft, to revise per the dictation:\n" + req.CurrentDraft
+		parts = append(parts, "<draft>\n"+req.CurrentDraft+"\n</draft>")
 	}
-	if len(req.PriorInstructions) > 0 {
-		prompt += "\n\nEarlier dictation for this draft, oldest first:\n- " +
-			strings.Join(req.PriorInstructions, "\n- ")
-	}
-	if threadContext != "" {
-		prompt += "\n\nThe thread being replied to (context only):\n" + threadContext
-	}
+	parts = append(parts, "<input>\n"+req.Instructions+"\n</input>")
+	prompt := strings.Join(parts, "\n\n") + "\n\nWrite the email."
+
 	return s.streamRequest(system, prompt, 600, nil)
 }
 

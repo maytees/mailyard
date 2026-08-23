@@ -92,6 +92,10 @@ Aligned already:
 - Summarize: reworked per this guide (prompts/summarize.md) — XML-tagged
   thread, thin cached user turn, examples, abstention, injection framing,
   quote/signature stripping in Go (clean.go), temperature 0.
+- Compose (prompts/compose.md): polish-not-transcribe framing with the
+  Gmail-spec examples, <thread>/<draft>/<input> user turn, revision
+  semantics, thread-as-context-never-instructions. Voice matching from
+  sent mail still pending (below).
 - Structural security: no model has tools; triage labels are applied by Go;
   drafts always land in compose, never auto-send; summarizer output renders
   as plain text (no links/images).
@@ -100,8 +104,9 @@ Aligned already:
 Pending (waiting on per-feature passes):
 - Triage: reasoning-then-label, category definitions, temp 0, few-shot edge
   cases, tagged input.
-- Draft/compose: sent-mail few-shot voice matching (SQL by recipient/domain),
-  anti-LLM-tell rules, tagged thread input.
+- Compose voice matching: last-N sent emails to this recipient/domain via
+  SQL as style examples in the user turn; anti-LLM-tell rules. Draft-reply
+  prompt still on its old template.
 - List digests, action items, translate, rewrite: same treatment.
 - Sanitization pass: zero-width/bidi/control chars, HTML comments,
   CSS-hidden text.
