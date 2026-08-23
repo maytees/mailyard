@@ -13,17 +13,11 @@ import (
 	"mailyard/internal/store"
 )
 
-type summaryOutput struct {
-	// The json schema description constrains the model far harder than prose
-	// system prompts — local models ignore those on long inputs.
-	Summary string `json:"summary" jsonschema_description:"1 to 3 plain sentences, 60 words maximum, no markdown of any kind"`
-}
-
 // SummarizeThread produces a short plain-text summary (cache-first) and
-// replays it over the streaming channel so the UI has one code path.
-// Generation is structured (JSON-constrained) rather than free-streamed:
-// small local models decorate free text with markdown no matter what the
-// prompt says, and the output is sanitized + word-capped as a final guard.
+// replays it over the streaming channel so the UI has one code path. The
+// thread goes in as structured <thread> XML (quote chains and signatures
+// stripped in Go) at temperature 0; the example-driven system prompt does
+// the shaping, with sanitize + word cap as the final guard.
 func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID string) (string, error) {
 	if cached, err := s.Store.ArtifactGet(ctx, store.ArtifactThreadSummary, threadID); err == nil && cached != "" {
 		requestID := newRequestID()
@@ -34,7 +28,11 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 		return requestID, nil
 	}
 
-	text, err := s.threadText(ctx, accountID, threadID)
+	account, err := s.Store.GetAccount(ctx, accountID)
+	if err != nil {
+		return "", err
+	}
+	threadXML, err := s.threadXML(ctx, accountID, threadID)
 	if err != nil {
 		return "", err
 	}
@@ -47,10 +45,16 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 		return "", err
 	}
 
+	// The user turn stays thin so the (long, example-laden) system prompt
+	// caches across requests.
+	prompt := "<owner>" + account.Email + "</owner>\n" + threadXML +
+		"\n\nSummarize this thread."
+
 	options := []goai.Option{
 		goai.WithSystem(s.promptText(ctx, "summarize", nil)),
-		goai.WithPrompt(text),
+		goai.WithPrompt(prompt),
 		goai.WithMaxOutputTokens(400),
+		goai.WithTemperature(0),
 	}
 	if config.Provider == "ollama" {
 		// Native-Ollama-only knob: skip qwen-style thinking for short
@@ -65,12 +69,12 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 		// of an eternal caret.
 		background, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		defer cancel()
-		result, err := goai.GenerateObject[summaryOutput](background, model, options...)
+		result, err := goai.GenerateText(background, model, options...)
 		if err != nil {
 			s.emit(StreamChunk{RequestID: requestID, Seq: 0, Done: true, Error: err.Error()})
 			return
 		}
-		summary := SanitizeSummary(result.Object.Summary, 70)
+		summary := SanitizeSummary(result.Text, 70)
 		if summary == "" {
 			s.emit(StreamChunk{RequestID: requestID, Seq: 0, Done: true,
 				Error: "the model returned an empty summary — try again"})

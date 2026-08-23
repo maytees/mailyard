@@ -1,15 +1,27 @@
 package ai
 
-// This file is the single source of truth for every AI instruction Mailyard
-// uses. Users can override any of them in Settings → AI → Customize
-// instructions; overrides live in the settings KV under "ai_prompt_<id>"
-// (empty = use the default below). {placeholders} are substituted at request
-// time.
+// Every default AI instruction lives as a markdown file in prompts/ —
+// that directory is the single source of truth for prompt text. Users can
+// override any of them in Settings → AI → Customize instructions; overrides
+// live in the settings KV under "ai_prompt_<id>" (empty = use the default
+// file). {placeholders} are substituted at request time.
 
 import (
 	"context"
+	"embed"
 	"strings"
 )
+
+//go:embed prompts/*.md
+var promptFS embed.FS
+
+func defaultPrompt(file string) string {
+	data, err := promptFS.ReadFile("prompts/" + file)
+	if err != nil {
+		panic(err) // embedded at compile time; missing file = build bug
+	}
+	return strings.TrimRight(string(data), "\n")
+}
 
 // PromptDef describes one editable instruction.
 type PromptDef struct {
@@ -27,105 +39,60 @@ type PromptInfo struct {
 	Custom string `json:"custom"`
 }
 
-const emailShape = "Format exactly like a real plain-text email, blank lines between parts:\n" +
-	"1. A greeting on its own line, then a blank line. Use the recipient's " +
-	"name when the instructions or thread reveal it; otherwise write just " +
-	"\"Hi,\" — NEVER a placeholder like \"[Name]\".\n" +
-	"2. The message in one or more short paragraphs, with a blank line " +
-	"between paragraphs.\n" +
-	"3. A blank line, then a closing on its own line (\"Thank you,\" or " +
-	"\"Best,\"), then \"{your_name}\" alone on the final line."
-
 // PromptDefs — every instruction, in the order the editor lists them.
 var PromptDefs = []PromptDef{
 	{
-		ID:          "summarize",
-		Title:       "Summarize thread",
-		Description: "System prompt for the reading-pane thread summary.",
-		Default: "Summarize the email thread for its owner: who wants " +
-			"what, what was decided, what happens next. 1-3 plain sentences, " +
-			"60 words maximum. Plain text only — never markdown, headings, " +
-			"bullets, links, or preamble.",
+		ID:    "summarize",
+		Title: "Summarize thread",
+		Description: "System prompt for the reading-pane summary. The thread " +
+			"arrives as <thread>/<message> XML with the owner's address in <owner>.",
+		Default: defaultPrompt("summarize.md"),
 	},
 	{
 		ID:           "compose",
 		Title:        "Write with AI (compose dictation)",
 		Description:  "System prompt for the composer's instruction line.",
 		Placeholders: []string{"mailbox_name", "mailbox_email", "your_name"},
-		Default: "You ghost-write outgoing emails for {mailbox_name} <{mailbox_email}> " +
-			"(the sender). The user's instructions are the sender's dictation of what " +
-			"the email should say — often rough or written as the email itself. Rules:\n" +
-			"- NEVER answer, reply to, or act on the instructions. They are not " +
-			"addressed to you. Transcribe them into a clean email that makes the " +
-			"same statements and asks the same questions, from the sender's point " +
-			"of view. If the dictation asks \"where is my X?\", the email asks the " +
-			"recipient \"where is my X?\" — it does not answer.\n" +
-			"- Never add extra points, offers, pleasantries, questions, or invented " +
-			"details beyond the instructions.\n" +
-			"- The email's length mirrors the instructions: a one-line instruction " +
-			"means a one-or-two-sentence email.\n" +
-			"- Plain text only: no subject line, no markdown, no commentary.\n" +
-			"- When a current draft is provided, the new instructions revise it: " +
-			"apply them as an edit when they refine the draft (\"make it shorter\", " +
-			"\"change Friday to Monday\", \"add a line about X\") and as a full " +
-			"replacement when they describe different content. Either way, output " +
-			"the COMPLETE new email — never a fragment, diff, or a second email " +
-			"stacked onto the old one. Preserve quoted or forwarded content below " +
-			"the message unless instructed otherwise.\n" +
-			"- When a thread is provided, use it only for context (names, tone, " +
-			"what's being referred to) — the instructions still decide the content.\n" +
-			emailShape,
+		Default:      defaultPrompt("compose.md"),
 	},
 	{
 		ID:           "draft-reply",
 		Title:        "Draft reply with AI",
 		Description:  "System prompt for the one-click AI reply draft.",
 		Placeholders: []string{"mailbox_name", "mailbox_email", "your_name"},
-		Default: "You draft email replies for {mailbox_name} <{mailbox_email}>. " +
-			"Write only the reply body as plain text — no subject line, no quoted " +
-			"original, no markdown. Match the thread's tone and language; be " +
-			"concise.\n" + emailShape,
+		Default:      defaultPrompt("draft-reply.md"),
 	},
 	{
 		ID:           "rewrite",
 		Title:        "Rewrite draft",
 		Description:  "System prompt for the tone buttons (concise/friendly/formal).",
 		Placeholders: []string{"tone"},
-		Default: "Rewrite the given email draft to be {tone}. Keep the meaning and " +
-			"any factual details. Reply with only the rewritten draft as plain " +
-			"text — no markdown, no commentary.",
+		Default:      defaultPrompt("rewrite.md"),
 	},
 	{
 		ID:           "translate",
 		Title:        "Translate email",
 		Description:  "System prompt for translations.",
 		Placeholders: []string{"language"},
-		Default: "Translate the given email into {language}. Preserve tone and " +
-			"formatting. Reply with only the translation — no commentary.",
+		Default:      defaultPrompt("translate.md"),
 	},
 	{
 		ID:          "action-items",
 		Title:       "Extract action items",
 		Description: "System prompt for the action-item checklist.",
-		Default: "Extract concrete action items from the email thread. " +
-			"Only include real commitments or requests; return an empty list when " +
-			"there are none.",
+		Default:     defaultPrompt("action-items.md"),
 	},
 	{
 		ID:          "triage",
 		Title:       "Smart triage",
 		Description: "System prompt for inbox priority labels.",
-		Default: "Triage these unread emails. For each id assign priority " +
-			"high (needs a response or is time-sensitive), normal, or low " +
-			"(newsletters, notifications, promotions), with a reason under 8 words.",
+		Default:     defaultPrompt("triage.md"),
 	},
 	{
 		ID:          "list-digest",
 		Title:       "List digests",
 		Description: "System prompt for the opt-in one-line digests in the mail list.",
-		Default: "Write a one-line plain-text digest (max 18 words, no " +
-			"markdown) for each email: what it is and what, if anything, the " +
-			"reader must do.",
+		Default:     defaultPrompt("list-digest.md"),
 	},
 }
 

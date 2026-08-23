@@ -149,6 +149,87 @@ func TestSummarizeReplaysCache(t *testing.T) {
 	}
 }
 
+func TestCleanBody(t *testing.T) {
+	raw := "Sounds good, see you Friday.\n" +
+		"\n" +
+		"On Wed, Jul 29, 2026 at 3:15 PM Jamie Prusak <j@x.com> wrote:\n" +
+		"> Hello!\n" +
+		"> I'm still working on the bios.\n" +
+		">\n" +
+		"> > Even deeper quote\n" +
+		"\n" +
+		"Sent from my iPhone\n" +
+		"\n" +
+		"-- \n" +
+		"Jamie Prusak\n" +
+		"VP of Everything | Asgaard Capital\n"
+
+	got := CleanBody(raw)
+	if got != "Sounds good, see you Friday." {
+		t.Fatalf("noise survived: %q", got)
+	}
+
+	// Clean bodies pass through, with blank runs collapsed.
+	clean := "First paragraph.\n\n\n\nSecond paragraph."
+	if got := CleanBody(clean); got != "First paragraph.\n\nSecond paragraph." {
+		t.Fatalf("clean body mangled: %q", got)
+	}
+}
+
+func TestThreadXMLShape(t *testing.T) {
+	service, _ := testService(t)
+	ctx := context.Background()
+
+	account := store.Account{
+		ID: "acc1", Email: "me@x.com", DisplayName: "Me", Color: "violet",
+		IMAPHost: "x", IMAPPort: 1, SMTPHost: "x", SMTPPort: 1,
+		Username: "me@x.com", CreatedAt: 1,
+	}
+	if err := service.Store.UpsertAccount(ctx, account); err != nil {
+		t.Fatal(err)
+	}
+	inbox, err := service.Store.UpsertFolder(ctx, store.Folder{
+		AccountID: account.ID, Name: "INBOX", Role: store.RoleInbox,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, _, err := service.Store.UpsertMessage(ctx, store.Message{
+		AccountID: account.ID, FolderID: inbox, UID: 1, MessageID: "<m1@x>",
+		Subject: "Hi", From: store.Address{Name: "Ann", Email: "ann@x.com"},
+		Date: 1754500000,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Store.SetMessageBody(ctx, id,
+		"The report is ready.\n\n> old quoted stuff\n-- \nsig", ""); err != nil {
+		t.Fatal(err)
+	}
+
+	message, err := service.Store.GetMessage(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	xml, err := service.threadXML(ctx, account.ID, message.ThreadID)
+	if err != nil {
+		t.Fatalf("threadXML: %v", err)
+	}
+	for _, want := range []string{
+		"<thread>", "</thread>", "<message>", "<from>Ann <ann@x.com></from>",
+		"<body>", "The report is ready.",
+	} {
+		if !strings.Contains(xml, want) {
+			t.Fatalf("missing %q in:\n%s", want, xml)
+		}
+	}
+	for _, banned := range []string{"> old quoted stuff", "sig"} {
+		if strings.Contains(xml, banned) {
+			t.Fatalf("noise %q survived in:\n%s", banned, xml)
+		}
+	}
+}
+
 func TestPromptOverrides(t *testing.T) {
 	service, _ := testService(t)
 	ctx := context.Background()

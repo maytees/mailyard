@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zendev-sh/goai"
 	"github.com/zendev-sh/goai/provider"
@@ -206,6 +207,52 @@ const (
 	threadTextPerBody     = 1200
 	threadTextTotal       = 8000
 )
+
+// threadXML renders a thread in the structured form the summarize prompt
+// expects: one <message> block per email with cleaned bodies (quote chains
+// and signatures stripped), newest messages preserved when the caps bite.
+func (s *Service) threadXML(ctx context.Context, accountID, threadID string) (string, error) {
+	thread, err := s.Store.GetThread(ctx, accountID, threadID)
+	if err != nil {
+		return "", err
+	}
+	if len(thread) == 0 {
+		return "", fmt.Errorf("thread not found")
+	}
+	if len(thread) > threadTextMaxMessages {
+		thread = thread[len(thread)-threadTextMaxMessages:]
+	}
+
+	parts := make([]string, 0, len(thread))
+	for _, message := range thread {
+		body, err := s.Store.GetMessageBody(ctx, message.ID)
+		if err != nil {
+			return "", err
+		}
+		text := CleanBody(body.TextBody)
+		if text == "" {
+			text = message.Snippet
+		}
+		if len(text) > threadTextPerBody {
+			text = text[:threadTextPerBody] + "…"
+		}
+		from := message.From.Email
+		if message.From.Name != "" {
+			from = message.From.Name + " <" + message.From.Email + ">"
+		}
+		date := time.Unix(message.Date, 0).Format("Mon, 2 Jan 2006 15:04")
+		parts = append(parts, fmt.Sprintf(
+			"\t<message>\n\t\t<from>%s</from>\n\t\t<date>%s</date>\n\t\t<body>\n%s\n\t\t</body>\n\t</message>",
+			from, date, text))
+	}
+
+	joined := strings.Join(parts, "\n")
+	for len(joined) > threadTextTotal && len(parts) > 1 {
+		parts = parts[1:]
+		joined = strings.Join(parts, "\n")
+	}
+	return "<thread>\n" + joined + "\n</thread>", nil
+}
 
 // threadText renders a thread (bodies included) into a prompt-friendly form,
 // newest messages preserved when the caps bite.

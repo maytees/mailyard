@@ -13,7 +13,7 @@ import (
 // shape, so stale caches (e.g. the markdown essays local models used to
 // produce) regenerate instead of replaying.
 const (
-	ArtifactThreadSummary  = "thread-summary-v3"
+	ArtifactThreadSummary  = "thread-summary-v4"
 	ArtifactMessageSummary = "msg-summary"
 	ArtifactTriage         = "triage"
 )

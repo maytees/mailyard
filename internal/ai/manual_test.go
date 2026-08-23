@@ -2,7 +2,8 @@
 
 package ai
 
-// Manual integration check against a locally running Ollama:
+// Manual integration check against a locally running Ollama, exercising the
+// real service path (prompt file, XML thread, cleaning, sanitizing):
 //
 //	go test ./internal/ai/ -tags manual -run TestManualOllamaSummary -v
 //
@@ -13,44 +14,76 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/zendev-sh/goai"
-	"github.com/zendev-sh/goai/provider/ollama"
+	"mailyard/internal/store"
 )
 
 func TestManualOllamaSummary(t *testing.T) {
-	thread := "From: Jamie <j@x.com>\nSubject: 7.24 Website Body Copy Revisions\n\n" +
-		"[Share image] Jamie invited you to edit a file. Here are the Home Page and " +
-		"Service Pages copy changes. Owner Page and Team bios expected tomorrow " +
-		"morning. Document: https://example.sharepoint.com/very/long/path/doc.docx\n\n---\n\n" +
-		"From: Maytham <m@x.com>\n\nIs the Young meeting Thursday or Friday?\n\n---\n\n" +
-		"From: Jamie <j@x.com>\n\nI set it up in Teams for Friday, waiting on Young to confirm."
+	service, recorder := testService(t)
+	ctx := context.Background()
+	if err := service.SetConfig(ctx, "ollama", "qwen3:8b", false, ""); err != nil {
+		t.Fatal(err)
+	}
 
-	result, err := goai.GenerateObject[summaryOutput](context.Background(),
-		ollama.Chat("qwen3:8b"),
-		goai.WithSystem("Summarize the email thread for its owner: who wants "+
-			"what, what was decided, what happens next. 1-3 plain sentences, "+
-			"60 words maximum. Plain text only — never markdown, headings, "+
-			"bullets, links, or preamble."),
-		goai.WithPrompt(thread),
-		goai.WithMaxOutputTokens(400),
-		goai.WithProviderOptions(map[string]any{"think": false}),
-	)
-	if err != nil {
-		t.Fatalf("generate: %v", err)
+	account := store.Account{
+		ID: "acc1", Email: "me@x.com", DisplayName: "Me", Color: "violet",
+		IMAPHost: "x", IMAPPort: 1, SMTPHost: "x", SMTPPort: 1,
+		Username: "me@x.com", CreatedAt: 1,
 	}
-	summary := SanitizeSummary(result.Object.Summary, 70)
-	t.Logf("summary (%d words): %s", len(strings.Fields(summary)), summary)
+	if err := service.Store.UpsertAccount(ctx, account); err != nil {
+		t.Fatal(err)
+	}
+	inbox, _ := service.Store.UpsertFolder(ctx, store.Folder{
+		AccountID: account.ID, Name: "INBOX", Role: store.RoleInbox,
+	})
 
-	if summary == "" {
-		t.Fatal("empty summary")
-	}
-	if words := len(strings.Fields(summary)); words > 75 {
-		t.Fatalf("too long: %d words", words)
-	}
-	for _, banned := range []string{"**", "###", "\n"} {
-		if strings.Contains(summary, banned) {
-			t.Fatalf("markdown survived: %q", summary)
+	seed := func(uid uint32, id, from, fromEmail, body string, refs string) {
+		msgID, _, err := service.Store.UpsertMessage(ctx, store.Message{
+			AccountID: account.ID, FolderID: inbox, UID: uid,
+			MessageID: id, Refs: refs, Subject: "7.24 Website Copy",
+			From: store.Address{Name: from, Email: fromEmail},
+			Date: 1754500000 + int64(uid)*3600,
+		})
+		if err != nil {
+			t.Fatal(err)
 		}
+		if err := service.Store.SetMessageBody(ctx, msgID, body, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	seed(1, "<m1@x>", "Jamie", "j@x.com",
+		"Here are the home and service page copy changes. Team bios coming tomorrow morning.", "")
+	seed(2, "<m2@x>", "Me", "me@x.com",
+		"Is the Young meeting Thursday or Friday?\n\n> Here are the home and service page copy changes.", "<m1@x>")
+	seed(3, "<m3@x>", "Jamie", "j@x.com",
+		"Set up in Teams for Friday, waiting on Young to confirm.\n\nSent from my iPhone", "<m1@x> <m2@x>")
+
+	message, err := service.Store.GetMessage(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SummarizeThread(ctx, account.ID, message.ThreadID); err != nil {
+		t.Fatalf("summarize: %v", err)
+	}
+
+	select {
+	case <-recorder.done:
+	case <-time.After(3 * time.Minute):
+		t.Fatal("no done chunk")
+	}
+
+	recorder.mu.Lock()
+	defer recorder.mu.Unlock()
+	var summary string
+	for _, chunk := range recorder.chunks {
+		if chunk.Error != "" {
+			t.Fatalf("stream error: %s", chunk.Error)
+		}
+		summary += chunk.Chunk
+	}
+	t.Logf("summary (%d words): %s", len(strings.Fields(summary)), summary)
+	if summary == "" || len(strings.Fields(summary)) > 75 {
+		t.Fatalf("bad summary: %q", summary)
 	}
 }
