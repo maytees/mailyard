@@ -96,6 +96,12 @@ Aligned already:
   Gmail-spec examples, <thread>/<draft>/<input> user turn, revision
   semantics, thread-as-context-never-instructions. Voice matching from
   sent mail still pending (below).
+- Draft reply (prompts/draft-reply.md): answer-or-defer core rule,
+  every-ask coverage, tone mirroring, injection framing, tagged
+  <owner>/<thread> user turn. Known soft spot on qwen3:8b: factual
+  questions the thread doesn't settle can still get answered
+  affirmatively (see git log for the EU-numbers case) — candidates:
+  an example for "asked about a detail the thread doesn't establish".
 - Structural security: no model has tools; triage labels are applied by Go;
   drafts always land in compose, never auto-send; summarizer output renders
   as plain text (no links/images).
@@ -105,8 +111,10 @@ Pending (waiting on per-feature passes):
 - Triage: reasoning-then-label, category definitions, temp 0, few-shot edge
   cases, tagged input.
 - Compose voice matching: last-N sent emails to this recipient/domain via
-  SQL as style examples in the user turn; anti-LLM-tell rules. Draft-reply
-  prompt still on its old template.
+  SQL as style examples in the user turn; anti-LLM-tell rules.
+- Reply intent upgrades (from the prompt notes): optional hint field
+  ("say yes", "push back") layered on the same prompt, or three-variant
+  accept/decline/defer generation.
 - List digests, action items, translate, rewrite: same treatment.
 - Sanitization pass: zero-width/bidi/control chars, HTML comments,
   CSS-hidden text.

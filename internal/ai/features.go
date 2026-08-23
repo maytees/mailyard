@@ -99,9 +99,13 @@ func (s *Service) senderName(ctx context.Context, account store.Account) string 
 	return account.DisplayName
 }
 
-// DraftReply streams a reply written in the user's voice.
+// DraftReply streams the one-click reply. Answer-or-defer is the prompt's
+// core rule: everything not established by the thread gets acknowledged and
+// deferred, never invented — a wrong commitment sent after a skim is this
+// feature's worst failure. Thin tagged user turn keeps the system prompt
+// cached.
 func (s *Service) DraftReply(ctx context.Context, accountID, threadID string) (string, error) {
-	text, err := s.threadText(ctx, accountID, threadID)
+	threadXML, err := s.threadXML(ctx, accountID, threadID)
 	if err != nil {
 		return "", err
 	}
@@ -109,13 +113,15 @@ func (s *Service) DraftReply(ctx context.Context, accountID, threadID string) (s
 	if err != nil {
 		return "", err
 	}
+	prompt := "<owner>" + account.Email + "</owner>\n" + threadXML +
+		"\n\nDraft the reply."
 	return s.streamRequest(
 		s.promptText(ctx, "draft-reply", map[string]string{
 			"mailbox_name":  account.DisplayName,
 			"mailbox_email": account.Email,
 			"your_name":     s.senderName(ctx, account),
 		}),
-		text,
+		prompt,
 		400,
 		nil,
 	)

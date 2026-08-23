@@ -56,9 +56,10 @@ var PromptDefs = []PromptDef{
 		Default:      defaultPrompt("compose.md"),
 	},
 	{
-		ID:           "draft-reply",
-		Title:        "Draft reply with AI",
-		Description:  "System prompt for the one-click AI reply draft.",
+		ID:    "draft-reply",
+		Title: "Draft reply with AI",
+		Description: "System prompt for the one-click AI reply draft. The " +
+			"thread arrives as <thread>/<message> XML with the owner in <owner>.",
 		Placeholders: []string{"mailbox_name", "mailbox_email", "your_name"},
 		Default:      defaultPrompt("draft-reply.md"),
 	},
