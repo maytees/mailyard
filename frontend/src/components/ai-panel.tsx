@@ -1,6 +1,5 @@
 import {
 	Cancel01Icon,
-	CheckListIcon,
 	SparklesIcon,
 	TranslateIcon,
 } from "@hugeicons/core-free-icons"
@@ -13,7 +12,6 @@ import { closeAIPanel, useAIStore, type AIPanelKind } from "@/stores/ai"
 const PANEL_META: Record<AIPanelKind, { title: string; icon: typeof SparklesIcon }> = {
 	summary: { title: "Summary", icon: SparklesIcon },
 	translation: { title: "Translation", icon: TranslateIcon },
-	"action-items": { title: "Action items", icon: CheckListIcon },
 }
 
 /** Streaming AI output pinned above the thread it belongs to. */
@@ -51,11 +49,6 @@ export function AIPanel({ threadKey }: { threadKey: string }) {
 
 					{panel.error ? (
 						<p className="text-sm text-destructive">{panel.error}</p>
-					) : panel.kind === "action-items" ? (
-						<ActionItemList
-							items={panel.items}
-							streaming={panel.streaming}
-						/>
 					) : (
 						<p className="text-sm leading-relaxed whitespace-pre-wrap">
 							{panel.content}
@@ -65,45 +58,6 @@ export function AIPanel({ threadKey }: { threadKey: string }) {
 				</motion.div>
 			)}
 		</AnimatePresence>
-	)
-}
-
-function ActionItemList({
-	items,
-	streaming,
-}: {
-	items: { text: string; owner: string }[]
-	streaming: boolean
-}) {
-	if (streaming) {
-		return (
-			<div className="space-y-2">
-				<div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
-				<div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
-			</div>
-		)
-	}
-	if (items.length === 0) {
-		return (
-			<p className="text-sm text-muted-foreground">
-				No action items in this thread.
-			</p>
-		)
-	}
-	return (
-		<ul className="space-y-1.5 text-sm">
-			{items.map((item, index) => (
-				<li key={index} className="flex flex-row items-start gap-2">
-					<span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
-					<span>
-						{item.text}
-						{item.owner && item.owner !== "you" && (
-							<span className="text-muted-foreground"> — {item.owner}</span>
-						)}
-					</span>
-				</li>
-			))}
-		</ul>
 	)
 }
 

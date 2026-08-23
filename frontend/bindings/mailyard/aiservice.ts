@@ -18,7 +18,11 @@ import * as ai$0 from "./internal/ai/models.js";
 // @ts-ignore: Unused imports
 import * as store$0 from "./internal/store/models.js";
 
-export function ActionItems(accountID: string, threadID: string): $CancellablePromise<ai$0.ActionItem[] | null> {
+/**
+ * ActionItems re-extracts a thread's checklist and returns the persisted
+ * rows (open first, done history kept).
+ */
+export function ActionItems(accountID: string, threadID: string): $CancellablePromise<store$0.ActionItemRow[] | null> {
     return $Call.ByID(1532129271, accountID, threadID);
 }
 
@@ -32,6 +36,13 @@ export function DraftReply(accountID: string, threadID: string): $CancellablePro
 
 export function GetConfig(): $CancellablePromise<ai$0.Config> {
     return $Call.ByID(4188563059);
+}
+
+/**
+ * ListActionItems returns a thread's saved checklist without re-extracting.
+ */
+export function ListActionItems(accountID: string, threadID: string): $CancellablePromise<store$0.ActionItemRow[] | null> {
+    return $Call.ByID(297992639, accountID, threadID);
 }
 
 /**
@@ -51,6 +62,13 @@ export function MessageArtifacts(kind: string, messageIDs: number[] | null): $Ca
 
 export function Rewrite(text: string, tone: string): $CancellablePromise<string> {
     return $Call.ByID(2524614873, text, tone);
+}
+
+/**
+ * SetActionItemDone toggles one checklist entry.
+ */
+export function SetActionItemDone(id: number, done: boolean): $CancellablePromise<void> {
+    return $Call.ByID(3174599792, id, done);
 }
 
 export function SetConfig(provider: string, model: string, listSummaries: boolean, apiKey: string): $CancellablePromise<void> {

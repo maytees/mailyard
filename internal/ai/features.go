@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -202,20 +203,48 @@ func (s *Service) Translate(ctx context.Context, text, language string) (string,
 	)
 }
 
-// ActionItem is one extracted to-do.
-type ActionItem struct {
-	Text string `json:"text"`
-	// Owner is who the item falls on ("you" for the account holder).
-	Owner string `json:"owner"`
+// extractedItem matches the prompt's output schema.
+type extractedItem struct {
+	Task  string  `json:"task"`
+	Owner string  `json:"owner"`
+	Due   *string `json:"due"`
 }
 
-type actionItemsOutput struct {
-	Items []ActionItem `json:"items"`
+// parseActionItems reads the model's JSON array defensively: markdown
+// fences stripped and the array located even if a model wraps it in prose.
+func parseActionItems(raw string) ([]extractedItem, error) {
+	text := strings.TrimSpace(raw)
+	text = strings.TrimPrefix(text, "```json")
+	text = strings.TrimPrefix(text, "```")
+	text = strings.TrimSuffix(text, "```")
+	text = strings.TrimSpace(text)
+	if !strings.HasPrefix(text, "[") {
+		start := strings.Index(text, "[")
+		end := strings.LastIndex(text, "]")
+		if start >= 0 && end > start {
+			text = text[start : end+1]
+		}
+	}
+	var items []extractedItem
+	if err := json.Unmarshal([]byte(text), &items); err != nil {
+		return nil, fmt.Errorf("parse action items: %w", err)
+	}
+	return items, nil
 }
 
-// ActionItems extracts a checklist from a thread (non-streaming).
-func (s *Service) ActionItems(ctx context.Context, accountID, threadID string) ([]ActionItem, error) {
-	text, err := s.threadText(ctx, accountID, threadID)
+// ActionItems extracts a thread's open action items (temperature 0, like
+// triage — it's extraction), persists them (open rows replaced, done rows
+// kept as history), and returns the thread's current checklist.
+func (s *Service) ActionItems(ctx context.Context, accountID, threadID string) ([]store.ActionItemRow, error) {
+	account, err := s.Store.GetAccount(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	threadXML, err := s.threadXML(ctx, accountID, threadID)
+	if err != nil {
+		return nil, err
+	}
+	config, err := s.Config(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -223,14 +252,48 @@ func (s *Service) ActionItems(ctx context.Context, accountID, threadID string) (
 	if err != nil {
 		return nil, err
 	}
-	result, err := goai.GenerateObject[actionItemsOutput](ctx, model,
+
+	prompt := "<owner>" + account.Email + "</owner>\n" + threadXML +
+		"\n\nExtract the action items."
+	options := []goai.Option{
 		goai.WithSystem(s.promptText(ctx, "action-items", nil)),
-		goai.WithPrompt(text),
-	)
+		goai.WithPrompt(prompt),
+		goai.WithMaxOutputTokens(600),
+		goai.WithTemperature(0),
+	}
+	if config.Provider == "ollama" {
+		options = append(options, goai.WithProviderOptions(map[string]any{"think": false}))
+	}
+	result, err := goai.GenerateText(ctx, model, options...)
 	if err != nil {
 		return nil, err
 	}
-	return result.Object.Items, nil
+	extracted, err := parseActionItems(result.Text)
+	if err != nil {
+		return nil, err
+	}
+
+	rows := make([]store.ActionItemRow, 0, len(extracted))
+	for _, item := range extracted {
+		if strings.TrimSpace(item.Task) == "" {
+			continue
+		}
+		owner := strings.TrimSpace(item.Owner)
+		if owner == "" {
+			owner = "you"
+		}
+		due := ""
+		if item.Due != nil {
+			due = strings.TrimSpace(*item.Due)
+		}
+		rows = append(rows, store.ActionItemRow{
+			Task: strings.TrimSpace(item.Task), Owner: owner, Due: due,
+		})
+	}
+	if err := s.Store.ReplaceActionItems(ctx, accountID, threadID, rows); err != nil {
+		return nil, err
+	}
+	return s.Store.ListActionItems(ctx, accountID, threadID)
 }
 
 // TriageResult labels one inbox message.

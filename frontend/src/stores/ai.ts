@@ -8,21 +8,19 @@ import { setComposeField, useComposeStore } from "@/stores/compose"
 import { getActiveMessage, useMailStore } from "@/stores/mail"
 import * as AIService from "~/bindings/mailyard/aiservice"
 import type {
-	ActionItem,
 	Config,
 	StreamChunk,
 } from "~/bindings/mailyard/internal/ai/models"
 import type { UnsubscribeCandidate } from "~/bindings/mailyard/internal/store/models"
 import type { Message } from "~/bindings/mailyard/internal/store/models"
 
-export type AIPanelKind = "summary" | "translation" | "action-items"
+export type AIPanelKind = "summary" | "translation"
 
 interface AIPanel {
 	kind: AIPanelKind
 	/** accountId:threadId — the panel only renders on its own thread. */
 	threadKey: string
 	content: string
-	items: ActionItem[]
 	streaming: boolean
 	error: string
 }
@@ -36,6 +34,10 @@ interface AIState {
 	triage: Record<string, string>
 	unsubscribes: UnsubscribeCandidate[] | null
 	unsubscribesOpen: boolean
+	/** Bumped whenever a thread's action items change; cards refetch. */
+	actionItemsRefresh: number
+	/** threadKey currently being extracted (card shows progress). */
+	extractingActionItems: string | null
 	translateOpen: boolean
 	busy: boolean
 }
@@ -47,6 +49,8 @@ export const useAIStore = create<AIState>(() => ({
 	triage: {},
 	unsubscribes: null,
 	unsubscribesOpen: false,
+	actionItemsRefresh: 0,
+	extractingActionItems: null,
 	translateOpen: false,
 	busy: false,
 }))
@@ -133,7 +137,7 @@ async function streamIntoPanel(
 	start: () => Promise<string>
 ) {
 	useAIStore.setState({
-		panel: { kind, threadKey, content: "", items: [], streaming: true, error: "" },
+		panel: { kind, threadKey, content: "", streaming: true, error: "" },
 	})
 	try {
 		const requestId = await start()
@@ -192,33 +196,41 @@ export async function translateActiveThread(language: string) {
 	})
 }
 
+/**
+ * Re-extracts a thread's action items (persisted server-side; open items
+ * replaced, done history kept) and refreshes the reading-pane card.
+ */
 export async function extractActionItems(message: Message) {
 	const key = threadKeyOf(message)
-	useAIStore.setState({
-		panel: {
-			kind: "action-items", threadKey: key, content: "", items: [],
-			streaming: true, error: "",
-		},
-	})
+	useAIStore.setState({ extractingActionItems: key })
 	try {
-		const items = (await AIService.ActionItems(message.accountId, message.threadId)) ?? []
-		useAIStore.setState((s) =>
-			s.panel?.threadKey === key
-				? { panel: { ...s.panel, items, streaming: false } }
-				: s
+		const items =
+			(await AIService.ActionItems(message.accountId, message.threadId)) ?? []
+		const open = items.filter((item) => !item.done).length
+		useAIStore.setState((s) => ({
+			actionItemsRefresh: s.actionItemsRefresh + 1,
+		}))
+		toast(
+			open === 0
+				? "No open action items in this thread"
+				: `${open} open action ${open === 1 ? "item" : "items"}`
 		)
 	} catch (raw: unknown) {
-		useAIStore.setState((s) =>
-			s.panel?.threadKey === key
-				? {
-						panel: {
-							...s.panel,
-							streaming: false,
-							error: raw instanceof Error ? raw.message : String(raw),
-						},
-					}
-				: s
-		)
+		toast.error(raw instanceof Error ? raw.message : String(raw))
+	} finally {
+		useAIStore.setState({ extractingActionItems: null })
+	}
+}
+
+/** Toggles a checklist entry and refreshes cards. */
+export async function toggleActionItem(id: number, done: boolean) {
+	try {
+		await AIService.SetActionItemDone(id, done)
+		useAIStore.setState((s) => ({
+			actionItemsRefresh: s.actionItemsRefresh + 1,
+		}))
+	} catch (raw: unknown) {
+		toast.error(raw instanceof Error ? raw.message : String(raw))
 	}
 }
 

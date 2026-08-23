@@ -3,6 +3,7 @@
 
 export type {
     Account,
+    ActionItemRow,
     Address,
     Attachment,
     Contact,

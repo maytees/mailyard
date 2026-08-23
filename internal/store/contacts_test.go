@@ -39,6 +39,59 @@ func TestSearchAndThreadDedupeGmailAllMailCopies(t *testing.T) {
 	}
 }
 
+func TestActionItemsReplaceKeepsDoneHistory(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	a := testAccount(t, s, "acc1")
+
+	first := []ActionItemRow{
+		{Task: "Review the contract", Owner: "you", Due: "Friday"},
+		{Task: "Book the venue", Owner: "Priya"},
+	}
+	if err := s.ReplaceActionItems(ctx, a.ID, "<t1@x>", first); err != nil {
+		t.Fatalf("replace: %v", err)
+	}
+	items, err := s.ListActionItems(ctx, a.ID, "<t1@x>")
+	if err != nil || len(items) != 2 {
+		t.Fatalf("list: %+v err=%v", items, err)
+	}
+
+	// Check one off; a re-extract that still includes it must not reopen it,
+	// and dropped items must vanish.
+	if err := s.SetActionItemDone(ctx, items[0].ID, true); err != nil {
+		t.Fatalf("done: %v", err)
+	}
+	second := []ActionItemRow{
+		{Task: "Review the contract", Owner: "you", Due: "Friday"}, // now done
+		{Task: "Send the invite list", Owner: "you"},               // new
+		// "Book the venue" handled → gone
+	}
+	if err := s.ReplaceActionItems(ctx, a.ID, "<t1@x>", second); err != nil {
+		t.Fatalf("re-replace: %v", err)
+	}
+	items, _ = s.ListActionItems(ctx, a.ID, "<t1@x>")
+	if len(items) != 2 {
+		t.Fatalf("want done+new = 2, got %+v", items)
+	}
+	byTask := map[string]ActionItemRow{}
+	for _, item := range items {
+		byTask[item.Task] = item
+	}
+	if !byTask["Review the contract"].Done {
+		t.Fatal("done item reopened by re-extract")
+	}
+	if _, gone := byTask["Book the venue"]; gone {
+		t.Fatal("handled item survived re-extract")
+	}
+	if byTask["Send the invite list"].Done {
+		t.Fatal("new item marked done")
+	}
+	// Open items sort first.
+	if items[0].Done {
+		t.Fatalf("open-first ordering broken: %+v", items)
+	}
+}
+
 func TestReorderAccounts(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()

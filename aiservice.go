@@ -115,12 +115,32 @@ func (a *AIService) Translate(ctx context.Context, text, language string) (strin
 	return service.Translate(ctx, text, language)
 }
 
-func (a *AIService) ActionItems(ctx context.Context, accountID, threadID string) ([]ai.ActionItem, error) {
+// ActionItems re-extracts a thread's checklist and returns the persisted
+// rows (open first, done history kept).
+func (a *AIService) ActionItems(ctx context.Context, accountID, threadID string) ([]store.ActionItemRow, error) {
 	service, err := a.svc()
 	if err != nil {
 		return nil, err
 	}
 	return service.ActionItems(ctx, accountID, threadID)
+}
+
+// ListActionItems returns a thread's saved checklist without re-extracting.
+func (a *AIService) ListActionItems(ctx context.Context, accountID, threadID string) ([]store.ActionItemRow, error) {
+	st := a.boot.storeHandle()
+	if st == nil {
+		return nil, fmt.Errorf("database is not available")
+	}
+	return st.ListActionItems(ctx, accountID, threadID)
+}
+
+// SetActionItemDone toggles one checklist entry.
+func (a *AIService) SetActionItemDone(ctx context.Context, id int64, done bool) error {
+	st := a.boot.storeHandle()
+	if st == nil {
+		return fmt.Errorf("database is not available")
+	}
+	return st.SetActionItemDone(ctx, id, done)
 }
 
 func (a *AIService) TriageInbox(ctx context.Context, accountID string) ([]ai.TriageResult, error) {

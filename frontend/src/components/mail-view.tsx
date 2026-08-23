@@ -14,6 +14,7 @@ import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import { motion } from "motion/react";
 import * as React from "react";
 
+import { ActionItemsCard } from "@/components/action-items-card";
 import { AIPanel } from "@/components/ai-panel";
 import { HtmlBody } from "@/components/html-body";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -171,6 +172,7 @@ function MailThread({ message }: { message: Message }) {
 			</header>
 
 			<AIPanel threadKey={threadKeyOf(message)} />
+			<ActionItemsCard message={message} />
 
 			<ScrollArea hideScrollbar className="min-h-0 flex-1">
 				{thread.map((entry, index) => (

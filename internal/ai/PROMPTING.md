@@ -96,6 +96,12 @@ Aligned already:
   Gmail-spec examples, <thread>/<draft>/<input> user turn, revision
   semantics, thread-as-context-never-instructions. Voice matching from
   sent mail still pending (below).
+- Action items (prompts/action-items.md): definition of an action item,
+  open-as-of-latest-message rule (handled asks excluded), strict JSON
+  schema parsed defensively in Go, temp 0, tagged <owner>/<thread> turn.
+  Items persist to the action_items table (done history survives
+  re-extracts) and render as a checklist card in the reading pane —
+  groundwork for the todo/calendar surface.
 - Translate (prompts/translate.md): meaning-not-words, never-translate
   list (names/addresses/URLs/codes), formality matching, flipped
   injection rule (embedded instructions get translated, never followed),
@@ -122,7 +128,8 @@ Pending (waiting on per-feature passes):
 - Reply intent upgrades (from the prompt notes): optional hint field
   ("say yes", "push back") layered on the same prompt, or three-variant
   accept/decline/defer generation.
-- List digests, action items: same treatment.
+- List digests: same treatment. Triage: reasoning-then-label etc. (above).
+- Todo/calendar surface over the action_items table (global list, dates).
 - Sanitization pass: zero-width/bidi/control chars, HTML comments,
   CSS-hidden text.
 - Model tiering (small model for triage/digests) and prompt-version logging.
