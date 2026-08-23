@@ -12,6 +12,7 @@ import { ComposeSheet } from "./components/compose-sheet.tsx"
 import { SettingsDialog } from "./components/settings-dialog.tsx"
 import { ShortcutHelpDialog } from "./components/shortcut-help-dialog.tsx"
 import { SplashGate } from "./components/splash-screen.tsx"
+import { LabelPickerDialog } from "./components/label-picker-dialog.tsx"
 import { TranslateDialog } from "./components/translate-dialog.tsx"
 import { UnsubscribeDialog } from "./components/unsubscribe-dialog.tsx"
 import { Toaster } from "./components/ui/sonner.tsx"
@@ -40,7 +41,8 @@ createRoot(document.getElementById("root")!).render(
 						<ComposeSheet />
 						<SettingsDialog />
 						<ShortcutHelpDialog />
-						<TranslateDialog />
+						<LabelPickerDialog />
+					<TranslateDialog />
 						<UnsubscribeDialog />
 						<Toaster />
 					</SidebarProvider>

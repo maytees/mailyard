@@ -1,6 +1,9 @@
+import { Tag01Icon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import * as React from "react"
 import { toast } from "sonner"
 
+import { IconPicker } from "@/components/icon-picker"
 import { Button } from "@/components/ui/button"
 import {
 	Dialog,
@@ -11,17 +14,22 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { loadIconLibrary, useIcon } from "@/lib/icon-library"
+import { accentChoices, labelAccent } from "@/lib/mailbox-colors"
+import { cn } from "@/lib/utils"
 import { useAccountsStore } from "@/stores/accounts"
 import { loadAIConfig, useAIStore } from "@/stores/ai"
+import { refreshLabels, useLabelsStore } from "@/stores/labels"
 import { refreshMailList, refreshUnreadCounts } from "@/stores/mail"
 import { useSettingsStore } from "@/stores/settings"
 import { useThemeStore } from "@/stores/theme"
 import { useUIStore } from "@/stores/ui"
 import * as AccountService from "~/bindings/mailyard/accountservice"
 import * as AIService from "~/bindings/mailyard/aiservice"
+import * as LabelService from "~/bindings/mailyard/labelservice"
 import * as SettingsService from "~/bindings/mailyard/settingsservice"
 import * as TransferService from "~/bindings/mailyard/transferservice"
-import type { Account } from "~/bindings/mailyard/internal/store/models"
+import type { Account, Label } from "~/bindings/mailyard/internal/store/models"
 
 function Section({
 	title,
@@ -59,6 +67,7 @@ export function SettingsDialog() {
 				<div className="flex max-h-[65vh] flex-col gap-7 overflow-y-auto p-1">
 					<GeneralSection />
 					<MailboxesSection />
+					<LabelsSection />
 					<AISection />
 					<SyncSection />
 					<AppearanceSection />
@@ -111,6 +120,222 @@ function GeneralSection() {
 				</div>
 			</label>
 		</Section>
+	)
+}
+
+// ---- labels ----------------------------------------------------------------
+
+function LabelGlyphInline({ icon, className }: { icon: string; className?: string }) {
+	const resolved = useIcon(icon)
+	return <HugeiconsIcon icon={resolved ?? Tag01Icon} className={className} />
+}
+
+function LabelsSection() {
+	const labels = useLabelsStore((s) => s.labels)
+	const [autoCreate, setAutoCreate] = React.useState(false)
+	const [editing, setEditing] = React.useState<Label | null>(null)
+	const [creating, setCreating] = React.useState(false)
+
+	React.useEffect(() => {
+		void loadIconLibrary()
+		LabelService.AutoCreateEnabled().then(setAutoCreate).catch(() => {})
+	}, [])
+
+	const toggleAutoCreate = async (enabled: boolean) => {
+		setAutoCreate(enabled)
+		try {
+			await LabelService.SetAutoCreate(enabled)
+		} catch (raw: unknown) {
+			setAutoCreate(!enabled)
+			toast.error(errorText(raw))
+		}
+	}
+
+	const remove = async (label: Label) => {
+		try {
+			await LabelService.DeleteLabel(label.id)
+			await refreshLabels()
+			await refreshMailList()
+			toast(`“${label.name}” deleted — its emails moved to Other`)
+		} catch (raw: unknown) {
+			toast.error(errorText(raw))
+		}
+	}
+
+	return (
+		<Section title="Labels">
+			<p className="text-xs text-muted-foreground">
+				The AI sorts inbox mail into these. Each label’s description is the
+				classifier’s definition — edit it to retune what lands there.
+			</p>
+			<ul className="flex flex-col gap-1">
+				{labels.map((label) => {
+					const accent = labelAccent(label.color)
+					return (
+						<li
+							key={label.id}
+							className="flex flex-row items-center gap-2 rounded-xl border px-3 py-2"
+						>
+							<span
+								className={cn(
+									"inline-flex size-6 shrink-0 items-center justify-center rounded-full",
+									accent
+										? cn(accent, "bg-(--accent)/15 text-(--accent-fg)")
+										: "bg-muted text-muted-foreground"
+								)}
+							>
+								<LabelGlyphInline icon={label.icon} className="size-3.5" />
+							</span>
+							<div className="min-w-0 flex-1">
+								<span className="text-sm font-medium">
+									{label.name}
+									{label.createdBy === "ai" && (
+										<span className="ml-1.5 text-xs font-normal text-muted-foreground">
+											AI-created
+										</span>
+									)}
+								</span>
+								<p className="truncate text-xs text-muted-foreground">
+									{label.definition}
+								</p>
+							</div>
+							<Button variant="ghost" size="xs" onClick={() => setEditing(label)}>
+								Edit
+							</Button>
+							{label.id !== OTHER_LABEL_ID && (
+								<Button
+									variant="ghost"
+									size="xs"
+									className="text-destructive"
+									onClick={() => void remove(label)}
+								>
+									Delete
+								</Button>
+							)}
+						</li>
+					)
+				})}
+			</ul>
+			<div className="flex flex-row items-center justify-between">
+				<Button variant="outline" size="sm" onClick={() => setCreating(true)}>
+					New label
+				</Button>
+			</div>
+			<label className="flex cursor-pointer flex-row items-center gap-2 text-sm">
+				<input
+					type="checkbox"
+					checked={autoCreate}
+					onChange={(e) => void toggleAutoCreate(e.target.checked)}
+					className="accent-primary"
+				/>
+				Let the AI create new labels when none fit (otherwise: best fit or
+				Other)
+			</label>
+			<LabelEditDialog
+				key={editing ? editing.id : creating ? "new" : "closed"}
+				label={editing}
+				open={editing !== null || creating}
+				onClose={() => {
+					setEditing(null)
+					setCreating(false)
+				}}
+			/>
+		</Section>
+	)
+}
+
+/** The Other label's id — seeded by the migration, protected in the store. */
+const OTHER_LABEL_ID = 5
+
+function LabelEditDialog({
+	label,
+	open,
+	onClose,
+}: {
+	label: Label | null
+	open: boolean
+	onClose: () => void
+}) {
+	// State initializes from props — the parent remounts this dialog via key
+	// whenever a different label (or the create form) opens.
+	const [name, setName] = React.useState(label?.name ?? "")
+	const [definition, setDefinition] = React.useState(label?.definition ?? "")
+	const [color, setColor] = React.useState<string>(label?.color ?? "blue")
+	const [icon, setIcon] = React.useState(label?.icon ?? "Tag01Icon")
+	const [busy, setBusy] = React.useState(false)
+
+	const save = async () => {
+		setBusy(true)
+		try {
+			if (label) {
+				await LabelService.UpdateLabel({ ...label, name, definition, color, icon })
+			} else {
+				await LabelService.CreateLabel({
+					id: 0, name, definition, color, icon,
+					sortOrder: 0, builtin: false, createdBy: "user",
+				})
+			}
+			await refreshLabels()
+			await refreshMailList()
+			onClose()
+		} catch (raw: unknown) {
+			toast.error(errorText(raw))
+		} finally {
+			setBusy(false)
+		}
+	}
+
+	return (
+		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+			<DialogContent className="sm:max-w-md">
+				<DialogHeader>
+					<DialogTitle>{label ? `Edit “${label.name}”` : "New label"}</DialogTitle>
+				</DialogHeader>
+				<div className="flex flex-col gap-4">
+					<div className="flex flex-row items-end gap-2">
+						<label className="flex flex-1 flex-col gap-1.5">
+							<span className="text-xs text-muted-foreground">Name</span>
+							<Input value={name} onChange={(e) => setName(e.target.value)} />
+						</label>
+						<IconPicker value={icon} onChange={setIcon} />
+					</div>
+					<label className="flex flex-col gap-1.5">
+						<span className="text-xs text-muted-foreground">
+							Definition — one sentence telling the AI what belongs here
+						</span>
+						<Textarea
+							value={definition}
+							onChange={(e) => setDefinition(e.target.value)}
+							rows={2}
+						/>
+					</label>
+					<div className="flex flex-row flex-wrap gap-2">
+						{accentChoices.map((choice) => (
+							<button
+								key={choice}
+								type="button"
+								aria-label={`${choice} accent`}
+								className={cn(
+									"size-7 rounded-full transition-transform hover:scale-110",
+									choice === color &&
+										"ring-2 ring-ring ring-offset-2 ring-offset-popover"
+								)}
+								style={{ backgroundColor: `var(--color-mailbox-${choice})` }}
+								onClick={() => setColor(choice)}
+							/>
+						))}
+					</div>
+					<div className="flex flex-row justify-end gap-2">
+						<Button variant="outline" size="sm" onClick={onClose}>
+							Cancel
+						</Button>
+						<Button size="sm" disabled={busy || !name.trim()} onClick={() => void save()}>
+							{label ? "Save" : "Create"}
+						</Button>
+					</div>
+				</div>
+			</DialogContent>
+		</Dialog>
 	)
 }
 

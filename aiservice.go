@@ -214,21 +214,31 @@ func (a *AIService) generateSummaries() {
 	}
 	ctx := context.Background()
 	config, err := service.Config(ctx)
-	if err != nil || !config.ListSummaries {
+	if err != nil {
 		return
 	}
 	// Ollama is local — it never has (or needs) an API key.
 	if !config.HasKey && config.Provider != "ollama" {
 		return
 	}
-	// Batch generously — one call per 25 messages, cached forever by id.
-	count, err := service.GenerateListSummaries(ctx, 25)
+	if config.ListSummaries {
+		// Batch generously — one call per 25 messages, cached forever by id.
+		count, err := service.GenerateListSummaries(ctx, 25)
+		if err != nil {
+			log.Printf("list summaries: %v", err)
+		} else if count > 0 {
+			application.Get().Event.Emit("ai:artifacts-updated", true)
+		}
+	}
+	// Labels are core sorting, not an opt-in: one batch of unlabeled inbox
+	// mail per pass, persisted forever, user assignments never overwritten.
+	count, err := service.LabelInbox(ctx, 25)
 	if err != nil {
-		log.Printf("list summaries: %v", err)
+		log.Printf("label inbox: %v", err)
 		return
 	}
 	if count > 0 {
-		application.Get().Event.Emit("ai:artifacts-updated", true)
+		application.Get().Event.Emit("labels:updated", true)
 	}
 }
 

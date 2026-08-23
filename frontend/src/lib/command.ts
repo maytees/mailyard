@@ -22,6 +22,7 @@ import {
 	continueLastDraft,
 	openCompose,
 } from "@/stores/compose"
+import { labelInbox, setLabelPickerOpen } from "@/stores/labels"
 import {
 	getActiveMessage,
 	refreshMailList,
@@ -81,6 +82,7 @@ import {
 	SentIcon,
 	Settings01Icon,
 	SparklesIcon,
+	Tag01Icon,
 	Sun03Icon,
 	TickDoubleIcon,
 	TranslateIcon,
@@ -148,6 +150,13 @@ export const commands: AppCommand[] = [
 		},
 	},
 	{ id: "ai-triage", label: "Smart triage inbox", icon: AiBrain01Icon, group: "AI", run: () => void triageInbox() },
+	{ id: "ai-label", label: "Sort inbox into labels", icon: Tag01Icon, group: "AI", run: () => void labelInbox() },
+	{
+		id: "set-label", label: "Set label…", icon: Tag01Icon, group: "Mail actions",
+		run: () => {
+			if (activeMessage()) setLabelPickerOpen(true)
+		},
+	},
 	{ id: "ai-unsubscribe", label: "Suggest unsubscribes", icon: FilterMailRemoveIcon, group: "AI", run: () => void suggestUnsubscribes() },
 
 	// Mail actions.

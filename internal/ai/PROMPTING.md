@@ -106,6 +106,15 @@ Aligned already:
   full tagged <email id> bodies (CleanBody, capped), temp 0, defensive
   parse (fences, numeric ids, unknown-id drop so a hallucinated id
   never labels the wrong mail, bad priority clamps to normal).
+- Labels (prompts/label.md): category classifier over user-defined
+  labels — definitions injected from the labels table so editing a
+  label retunes the classifier; label-by-what-it-is rule; abstain to
+  Other; output names must copy the injected list (a familiar Gmail
+  name not in the list is invalid — learned from qwen3 echoing the
+  example's names). Escape hatch (setting, default off): may propose
+  up to 3 new labels/run with name+definition; the rule demonstrates
+  the JSON shape or small models ignore it. Runs in the background
+  after sync; user assignments always win.
 - Action items (prompts/action-items.md): definition of an action item,
   open-as-of-latest-message rule (handled asks excluded), strict JSON
   schema parsed defensively in Go, temp 0, tagged <owner>/<thread> turn.

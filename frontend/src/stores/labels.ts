@@ -2,6 +2,7 @@
 // badges, and the AI classifier trigger.
 import { create } from "zustand"
 import { toast } from "sonner"
+import { Events } from "@wailsio/runtime"
 
 import * as LabelService from "~/bindings/mailyard/labelservice"
 import type { Label } from "~/bindings/mailyard/internal/store/models"
@@ -9,11 +10,18 @@ import { refreshMailList } from "@/stores/mail"
 
 interface LabelsState {
 	labels: Label[]
+	/** The "Set label…" command's picker for the active message. */
+	pickerOpen: boolean
 }
 
 export const useLabelsStore = create<LabelsState>(() => ({
 	labels: [],
+	pickerOpen: false,
 }))
+
+export function setLabelPickerOpen(open: boolean) {
+	useLabelsStore.setState({ pickerOpen: open })
+}
 
 export async function refreshLabels() {
 	const labels = (await LabelService.ListLabels()) ?? []
@@ -51,5 +59,10 @@ let initialized = false
 export async function initLabelsStore() {
 	if (initialized) return // idempotent
 	initialized = true
+	// The background classifier finished a batch (may include new AI labels).
+	Events.On("labels:updated", () => {
+		refreshLabels().catch(() => {})
+		void refreshMailList()
+	})
 	await refreshLabels()
 }
