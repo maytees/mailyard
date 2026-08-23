@@ -1,5 +1,5 @@
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Tag01Icon } from "@hugeicons/core-free-icons"
+import { InboxIcon, Tag01Icon } from "@hugeicons/core-free-icons"
 
 import { useIcon, loadIconLibrary } from "@/lib/icon-library"
 import { labelAccent } from "@/lib/mailbox-colors"
@@ -36,6 +36,20 @@ export function LabelPills() {
 
 	return (
 		<div className="flex w-full flex-row gap-1.5 overflow-x-auto pt-3 [scrollbar-width:none]">
+			{/* "All" is a fixture, not a label row — it clears the filter. */}
+			<button
+				type="button"
+				onClick={() => setLabelFilter(0)}
+				className={cn(
+					"flex shrink-0 cursor-pointer flex-row items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+					active === 0
+						? "border-foreground/30 bg-muted text-foreground"
+						: "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+				)}
+			>
+				<HugeiconsIcon icon={InboxIcon} className="size-3.5" />
+				All
+			</button>
 			{labels.map((label) => {
 				const accent = labelAccent(label.color)
 				const isActive = active === label.id
