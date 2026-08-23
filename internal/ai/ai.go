@@ -40,9 +40,12 @@ type Emitter interface {
 	Emit(name string, data any)
 }
 
-// StreamChunk is one event on the "ai:stream" channel.
+// StreamChunk is one event on the "ai:stream" channel. Seq orders chunks:
+// Wails dispatches each emitted event on its own goroutine, so back-to-back
+// emits can arrive out of order — the frontend reassembles by Seq.
 type StreamChunk struct {
 	RequestID string `json:"requestId"`
+	Seq       int    `json:"seq"`
 	Chunk     string `json:"chunk"`
 	Done      bool   `json:"done"`
 	Error     string `json:"error"`
@@ -158,6 +161,14 @@ func (s *Service) streamRequest(system, prompt string, maxOutputTokens int, onDo
 
 	requestID := newRequestID()
 	go func() {
+		seq := 0
+		emit := func(chunk StreamChunk) {
+			chunk.RequestID = requestID
+			chunk.Seq = seq
+			seq++
+			s.emit(chunk)
+		}
+
 		options := []goai.Option{
 			goai.WithSystem(system),
 			goai.WithPrompt(prompt),
@@ -167,22 +178,22 @@ func (s *Service) streamRequest(system, prompt string, maxOutputTokens int, onDo
 		}
 		stream, err := goai.StreamText(context.Background(), model, options...)
 		if err != nil {
-			s.emit(StreamChunk{RequestID: requestID, Done: true, Error: err.Error()})
+			emit(StreamChunk{Done: true, Error: err.Error()})
 			return
 		}
 		var full strings.Builder
 		for text := range stream.TextStream() {
 			full.WriteString(text)
-			s.emit(StreamChunk{RequestID: requestID, Chunk: text})
+			emit(StreamChunk{Chunk: text})
 		}
 		if err := stream.Err(); err != nil {
-			s.emit(StreamChunk{RequestID: requestID, Done: true, Error: err.Error()})
+			emit(StreamChunk{Done: true, Error: err.Error()})
 			return
 		}
 		if onDone != nil {
 			onDone(full.String())
 		}
-		s.emit(StreamChunk{RequestID: requestID, Done: true})
+		emit(StreamChunk{Done: true})
 	}()
 	return requestID, nil
 }

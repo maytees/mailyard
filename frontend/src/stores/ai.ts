@@ -68,8 +68,40 @@ const handlers = new Map<string, ChunkHandler>()
 // replays, which emit immediately) — buffer orphans and flush on register,
 // or the request "hangs" forever.
 const orphanChunks = new Map<string, StreamChunk[]>()
+// Wails dispatches each emitted event on its own goroutine, so events for
+// one request can arrive OUT OF ORDER (a done before its content — the empty
+// panel bug). Chunks are reassembled by seq before delivery.
+const sequencers = new Map<string, { next: number; ahead: Map<number, StreamChunk> }>()
 
 function handleChunk(chunk: StreamChunk) {
+	const sequencer = sequencers.get(chunk.requestId) ?? {
+		next: 0,
+		ahead: new Map<number, StreamChunk>(),
+	}
+	sequencers.set(chunk.requestId, sequencer)
+
+	if (chunk.seq > sequencer.next) {
+		sequencer.ahead.set(chunk.seq, chunk)
+		return
+	}
+	if (chunk.seq < sequencer.next) {
+		return // duplicate
+	}
+
+	let current: StreamChunk | undefined = chunk
+	while (current) {
+		deliverChunk(current)
+		sequencer.next++
+		if (current.done) {
+			sequencers.delete(current.requestId)
+			return
+		}
+		current = sequencer.ahead.get(sequencer.next)
+		if (current) sequencer.ahead.delete(sequencer.next)
+	}
+}
+
+function deliverChunk(chunk: StreamChunk) {
 	const handler = handlers.get(chunk.requestId)
 	if (!handler) {
 		const buffered = orphanChunks.get(chunk.requestId) ?? []
@@ -90,7 +122,7 @@ function registerHandler(requestId: string, handler: ChunkHandler) {
 	if (!buffered) return
 	orphanChunks.delete(requestId)
 	for (const chunk of buffered) {
-		handleChunk(chunk)
+		deliverChunk(chunk)
 	}
 }
 
@@ -108,13 +140,15 @@ async function streamIntoPanel(
 		registerHandler(requestId, (chunk) => {
 			useAIStore.setState((s) => {
 				if (!s.panel || s.panel.threadKey !== threadKey) return s
+				const content = s.panel.content + (chunk.chunk ?? "")
+				// A silent empty finish must never look like success.
+				const error =
+					chunk.error ||
+					(chunk.done && !content
+						? "No output arrived — is Ollama running and the model pulled? (Settings ⌘,)"
+						: "")
 				return {
-					panel: {
-						...s.panel,
-						content: s.panel.content + chunk.chunk,
-						streaming: !chunk.done,
-						error: chunk.error,
-					},
+					panel: { ...s.panel, content, streaming: !chunk.done, error },
 				}
 			})
 		})
@@ -337,6 +371,9 @@ function normalize(map: { [key: string]: string | undefined } | null) {
 	}
 	return dense
 }
+
+// Exposed for tests — the stream plumbing is where hangs hide.
+export const _test = { handleChunk }
 
 // ---- init ------------------------------------------------------------------
 

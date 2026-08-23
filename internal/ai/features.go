@@ -28,8 +28,8 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 	if cached, err := s.Store.ArtifactGet(ctx, store.ArtifactThreadSummary, threadID); err == nil && cached != "" {
 		requestID := newRequestID()
 		go func() {
-			s.emit(StreamChunk{RequestID: requestID, Chunk: cached})
-			s.emit(StreamChunk{RequestID: requestID, Done: true})
+			s.emit(StreamChunk{RequestID: requestID, Seq: 0, Chunk: cached})
+			s.emit(StreamChunk{RequestID: requestID, Seq: 1, Done: true})
 		}()
 		return requestID, nil
 	}
@@ -60,12 +60,12 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 			goai.WithProviderOptions(map[string]any{"think": false}),
 		)
 		if err != nil {
-			s.emit(StreamChunk{RequestID: requestID, Done: true, Error: err.Error()})
+			s.emit(StreamChunk{RequestID: requestID, Seq: 0, Done: true, Error: err.Error()})
 			return
 		}
 		summary := SanitizeSummary(result.Object.Summary, 70)
 		if summary == "" {
-			s.emit(StreamChunk{RequestID: requestID, Done: true,
+			s.emit(StreamChunk{RequestID: requestID, Seq: 0, Done: true,
 				Error: "the model returned an empty summary — try again"})
 			return
 		}
@@ -73,8 +73,8 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 			store.ArtifactThreadSummary, threadID, summary, modelName); err != nil {
 			log.Printf("cache summary: %v", err)
 		}
-		s.emit(StreamChunk{RequestID: requestID, Chunk: summary})
-		s.emit(StreamChunk{RequestID: requestID, Done: true})
+		s.emit(StreamChunk{RequestID: requestID, Seq: 0, Chunk: summary})
+		s.emit(StreamChunk{RequestID: requestID, Seq: 1, Done: true})
 	}()
 	return requestID, nil
 }

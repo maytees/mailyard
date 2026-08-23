@@ -25,10 +25,13 @@ export interface Config {
 }
 
 /**
- * StreamChunk is one event on the "ai:stream" channel.
+ * StreamChunk is one event on the "ai:stream" channel. Seq orders chunks:
+ * Wails dispatches each emitted event on its own goroutine, so back-to-back
+ * emits can arrive out of order — the frontend reassembles by Seq.
  */
 export interface StreamChunk {
     "requestId": string;
+    "seq": number;
     "chunk": string;
     "done": boolean;
     "error": string;
