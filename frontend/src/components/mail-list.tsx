@@ -1,5 +1,6 @@
 import * as React from "react";
 
+import { LabelBadge } from "@/components/label-pills";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -149,11 +150,14 @@ const MailListItem = ({
 							)}
 							{sender}
 						</h2>
-						<span
-							className="text-muted-foreground text-xs font-medium shrink-0"
-							title={formatRelativeTime(message.date)}
-						>
-							{formatRelativeTime(message.date)}
+						<span className="flex shrink-0 flex-row items-center gap-1.5">
+							<LabelBadge labelId={message.labelId} />
+							<span
+								className="text-muted-foreground text-xs font-medium"
+								title={formatRelativeTime(message.date)}
+							>
+								{formatRelativeTime(message.date)}
+							</span>
 						</span>
 					</div>
 					<span

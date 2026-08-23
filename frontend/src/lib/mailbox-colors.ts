@@ -35,6 +35,12 @@ export const colorVariants = {
 
 export type MailboxColor = keyof typeof colorVariants
 
+/** Accent CSS vars for a label/account color; unknown keys (labels'
+ * neutral "slate") get null so callers fall back to muted styling. */
+export function labelAccent(color: string): string | null {
+	return color in colorVariants ? colorVariants[color as MailboxColor] : null
+}
+
 /** Every color key — for cva compoundVariants ({ color: mailboxColors, ... }). */
 export const mailboxColors = Object.keys(colorVariants) as MailboxColor[]
 

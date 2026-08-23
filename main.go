@@ -48,6 +48,7 @@ func main() {
 	// by BootService during startup.
 	boot := &BootService{}
 	syncSvc := &SyncService{boot: boot}
+	aiSvc := &AIService{boot: boot}
 	app := application.New(application.Options{
 		Name:        "mailyard",
 		Description: "A unified AI inbox.",
@@ -58,7 +59,8 @@ func main() {
 			application.NewService(&MailService{boot: boot, sync: syncSvc}),
 			application.NewService(&SendService{sync: syncSvc}),
 			application.NewService(&SearchService{boot: boot}),
-			application.NewService(&AIService{boot: boot}),
+			application.NewService(aiSvc),
+			application.NewService(&LabelService{boot: boot, ai: aiSvc}),
 			application.NewService(&SettingsService{boot: boot, sync: syncSvc}),
 			application.NewService(&TransferService{boot: boot, sync: syncSvc}),
 		},

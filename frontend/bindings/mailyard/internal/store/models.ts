@@ -63,12 +63,36 @@ export interface Contact {
 }
 
 /**
+ * Label is a Gmail-category-style bucket: global across accounts, one per
+ * message. Definition feeds the classifier prompt verbatim.
+ */
+export interface Label {
+    "id": number;
+    "name": string;
+    "definition": string;
+    "color": string;
+    "icon": string;
+    "sortOrder": number;
+    "builtin": boolean;
+
+    /**
+     * user | ai
+     */
+    "createdBy": string;
+}
+
+/**
  * ListFilter selects a message list slice. Empty AccountID means the unified
  * view across every account.
  */
 export interface ListFilter {
     "accountId": string;
     "folderRole": string;
+
+    /**
+     * LabelID narrows the list to one label (0 = all).
+     */
+    "labelId": number;
     "limit": number;
     "offset": number;
 }
@@ -92,6 +116,11 @@ export interface Message {
     "hasAttachments": boolean;
     "size": number;
     "snoozedUntil": number;
+
+    /**
+     * Assigned label (0 = not yet classified). Read-only on writes.
+     */
+    "labelId": number;
 }
 
 export interface MessageBody {

@@ -5,6 +5,7 @@ import { Events } from "@wailsio/runtime"
 
 import { initAccountsStore } from "@/stores/accounts"
 import { initAIStore } from "@/stores/ai"
+import { initLabelsStore } from "@/stores/labels"
 import { initMailStore } from "@/stores/mail"
 import { useSettingsStore } from "@/stores/settings"
 import { initWindowStore } from "@/stores/window"
@@ -67,6 +68,8 @@ const gates: BootGate[] = [
 	{ name: "mail", check: () => initMailStore() },
 	// AI config + stream subscription (local reads only).
 	{ name: "ai", check: () => initAIStore() },
+	// Category labels for the pill filter row and list badges.
+	{ name: "labels", check: () => initLabelsStore() },
 ]
 
 function delay(ms: number) {

@@ -4,6 +4,7 @@
 import * as AIService from "./aiservice.js";
 import * as AccountService from "./accountservice.js";
 import * as BootService from "./bootservice.js";
+import * as LabelService from "./labelservice.js";
 import * as MailService from "./mailservice.js";
 import * as SearchService from "./searchservice.js";
 import * as SendService from "./sendservice.js";
@@ -14,6 +15,7 @@ export {
     AIService,
     AccountService,
     BootService,
+    LabelService,
     MailService,
     SearchService,
     SendService,

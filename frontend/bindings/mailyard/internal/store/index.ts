@@ -7,6 +7,7 @@ export type {
     Address,
     Attachment,
     Contact,
+    Label,
     ListFilter,
     Message,
     MessageBody,

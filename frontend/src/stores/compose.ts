@@ -271,6 +271,7 @@ export async function continueLastDraft() {
 		const drafts = await MailService.ListMessages({
 			accountId: "",
 			folderRole: "drafts",
+			labelId: 0,
 			limit: 1,
 			offset: 0,
 		})

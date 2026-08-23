@@ -118,6 +118,7 @@ export function markAllRead() {
 	MailService.MarkAllRead({
 		accountId: accountFilter,
 		folderRole,
+		labelId: 0,
 		limit: 0,
 		offset: 0,
 	})

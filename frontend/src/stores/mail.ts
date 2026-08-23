@@ -22,6 +22,8 @@ interface MailState {
 	/** "" = unified view across all accounts. */
 	accountFilter: string
 	folderRole: string
+	/** Active label pill (0 = all labels). */
+	labelFilter: number
 	/** Per-account unread inbox counts (rail badges + header). */
 	unreadCounts: Record<string, number>
 	/** Unfinished mail across all accounts (palette badge). */
@@ -38,6 +40,7 @@ export const useMailStore = create<MailState>(() => ({
 	detachedMessage: null,
 	accountFilter: "",
 	folderRole: "inbox",
+	labelFilter: 0,
 	unreadCounts: {},
 	draftCount: 0,
 	syncStatus: {},
@@ -46,10 +49,11 @@ export const useMailStore = create<MailState>(() => ({
 }))
 
 function currentFilter(offset: number) {
-	const { accountFilter, folderRole } = useMailStore.getState()
+	const { accountFilter, folderRole, labelFilter } = useMailStore.getState()
 	return {
 		accountId: accountFilter,
 		folderRole,
+		labelId: labelFilter,
 		limit: PAGE_SIZE,
 		offset,
 	}
@@ -174,6 +178,16 @@ export function setAccountFilter(accountId: string) {
 	const current = useMailStore.getState().accountFilter
 	useMailStore.setState({
 		accountFilter: current === accountId ? "" : accountId,
+		activeMessageId: null,
+	})
+	void refreshMailList()
+}
+
+/** Toggle-style label pill: clicking the active label clears the filter. */
+export function setLabelFilter(labelId: number) {
+	const current = useMailStore.getState().labelFilter
+	useMailStore.setState({
+		labelFilter: current === labelId ? 0 : labelId,
 		activeMessageId: null,
 	})
 	void refreshMailList()

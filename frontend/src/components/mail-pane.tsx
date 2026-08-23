@@ -2,6 +2,7 @@ import { SearchIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { useCommandPalette } from "@/hooks/use-command-palette";
+import { LabelPills } from "@/components/label-pills";
 import { MailList } from "@/components/mail-list";
 import { Button } from "@/components/ui/button";
 import {
@@ -77,7 +78,7 @@ function MailPaneHeader() {
 			    click (not focus): opening mid-mousedown makes the dialog treat the
 			    mouseup as an outside press and instantly dismiss itself. */}
 			<InputGroup
-				className="mt-5 cursor-pointer"
+				className="mt-5 cursor-pointer shrink-0"
 				onClick={(event) => {
 					(
 						event.currentTarget.querySelector("input") as HTMLInputElement | null
@@ -97,6 +98,7 @@ function MailPaneHeader() {
 					<KbdShortcut shortcut="mod+k" />
 				</InputGroupAddon>
 			</InputGroup>
+			<LabelPills />
 		</div>
 	);
 }
