@@ -179,6 +179,13 @@ export function setAccountFilter(accountId: string) {
 	void refreshMailList()
 }
 
+/** Back to the unified all-accounts view (the sidebar logo click). */
+export function clearAccountFilter() {
+	if (useMailStore.getState().accountFilter === "") return
+	useMailStore.setState({ accountFilter: "", activeMessageId: null })
+	void refreshMailList()
+}
+
 export function setFolderRole(role: string) {
 	if (useMailStore.getState().folderRole === role) return
 	useMailStore.setState({ folderRole: role, activeMessageId: null })

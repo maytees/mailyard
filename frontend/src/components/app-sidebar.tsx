@@ -18,6 +18,7 @@ import { KbdShortcut } from "./ui/kbd";
 import { ThemeToggle } from "./theme-toggle";
 import { useWindowStore } from "@/stores/window";
 import { openCompose } from "@/stores/compose";
+import { clearAccountFilter } from "@/stores/mail";
 import { useUIStore } from "@/stores/ui";
 import { shortcutFor } from "@/lib/command";
 import { cn } from "@/lib/utils";
@@ -37,13 +38,21 @@ export function AppSidebar() {
 			>
 				<SidebarMenu className="items-center">
 					<SidebarMenuItem className="flex items-center justify-center">
-						<img
-							src="/logo.svg"
-							alt="Mailyard Logo"
-							height={1024}
-							width={1024}
-							className="size-9 dark:opacity-80"
-						/>
+						<button
+							type="button"
+							aria-label="Show all accounts"
+							title="All accounts"
+							onClick={clearAccountFilter}
+							className="cursor-pointer transition-transform hover:scale-105 active:scale-95"
+						>
+							<img
+								src="/logo.svg"
+								alt="Mailyard Logo"
+								height={1024}
+								width={1024}
+								className="size-9 dark:opacity-80"
+							/>
+						</button>
 						{/*<Avatar size="lg">
 							<AvatarImage src="htps://github.com/maytees.png" />
 							<AvatarFallback>MA</AvatarFallback>
