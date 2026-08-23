@@ -159,7 +159,9 @@ export function HtmlBody({
 								setTrustPromptOpen(false)
 							}}
 						>
-							Always trust {domain}
+							{/* The description names the domain — repeating it here
+							    overflows the footer on long senders. */}
+							Always trust this domain
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
