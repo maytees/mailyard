@@ -8,7 +8,7 @@ Wails v3 (alpha) desktop mail client: Go backend, React 19 frontend. Read this b
 - Root `*service.go` files — thin Wails services (their exported methods become TS bindings). Logic lives in `internal/`.
 - `internal/store` — SQLite (pure-Go driver), embedded migrations in `migrations/NNNN_*.sql`, FTS5 kept in sync transactionally (no triggers). Threading by References/In-Reply-To with angle-bracketed ids.
 - `internal/mail` — IMAP sync engine (per-account workers, IDLE + poll, UIDNEXT incremental, flag reconciliation), MIME parse (bluemonday-sanitized HTML), SMTP send, server-side drafts, cached action connections.
-- `internal/ai` — GoAI wrapper; streams over the `ai:stream` event; artifacts cached in `ai_artifacts`.
+- `internal/ai` — GoAI wrapper; streams over the `ai:stream` event; artifacts cached in `ai_artifacts`. Prompt defaults are markdown files in `internal/ai/prompts/` (user-overridable via settings). **Any AI feature work must follow `internal/ai/PROMPTING.md`** — the user's prompt-design guide (tagged untrusted content, examples, abstention, injection layers, caching order, temp policy).
 - `internal/accounts` / `internal/secrets` — account lifecycle; all credentials in the OS keychain (service `sh.mailyard`), never in SQLite.
 - Frontend: zustand stores in `src/stores` (module-level idempotent `init*Store()` guarded by a boolean), command registry in `src/lib/command.ts` (single source for palette, hotkeys, tooltips and the `?` overlay).
 
