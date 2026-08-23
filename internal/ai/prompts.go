@@ -90,6 +90,12 @@ var PromptDefs = []PromptDef{
 		Default:     defaultPrompt("triage.md"),
 	},
 	{
+		ID:          "label",
+		Title:       "Labels",
+		Description: "System prompt for sorting mail into category labels.",
+		Default:     defaultPrompt("label.md"),
+	},
+	{
 		ID:          "list-digest",
 		Title:       "List digests",
 		Description: "System prompt for the opt-in one-line digests in the mail list.",

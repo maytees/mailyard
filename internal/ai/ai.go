@@ -29,6 +29,9 @@ const (
 	SettingProvider      = "ai_provider"
 	SettingModel         = "ai_model"
 	SettingListSummaries = "ai_list_summaries"
+	// SettingLabelCreate ("true"/"false"): whether the labeler may invent
+	// new labels when none of the user's fit. Off → best fit or Other.
+	SettingLabelCreate = "ai_label_create"
 )
 
 const (

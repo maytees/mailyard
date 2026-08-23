@@ -323,6 +323,29 @@ func (s *Service) ActionItems(ctx context.Context, accountID, threadID string) (
 	return s.Store.ListActionItems(ctx, accountID, threadID)
 }
 
+// taggedEmails renders messages as the <email id> blocks the batch prompts
+// share (triage, digests, labels), returning the block text plus the
+// id→message map for the defensive parse on the way back — a hallucinated
+// id must never touch the wrong mail.
+func (s *Service) taggedEmails(ctx context.Context, messages []store.Message, bodyCap int) (string, map[string]int64) {
+	var b strings.Builder
+	requested := map[string]int64{}
+	for _, message := range messages {
+		body := message.Snippet
+		if full, err := s.Store.GetMessageBody(ctx, message.ID); err == nil && full.TextBody != "" {
+			body = CleanBody(full.TextBody)
+		}
+		if len(body) > bodyCap {
+			body = body[:bodyCap] + "…"
+		}
+		idText := strconv.FormatInt(message.ID, 10)
+		requested[idText] = message.ID
+		fmt.Fprintf(&b, "<email id=%q>\n\t<from>%s <%s></from>\n\t<subject>%s</subject>\n\t<body>\n%s\n\t</body>\n</email>\n",
+			idText, message.From.Name, message.From.Email, message.Subject, body)
+	}
+	return b.String(), requested
+}
+
 // TriageResult labels one inbox message.
 type TriageResult struct {
 	MessageID int64  `json:"messageId"`
@@ -373,26 +396,14 @@ func (s *Service) TriageInbox(ctx context.Context, accountID string) ([]TriageRe
 		unreadIDs = unreadIDs[:25]
 	}
 
-	var b strings.Builder
-	requested := map[string]int64{}
+	messages := make([]store.Message, 0, len(unreadIDs))
 	for _, id := range unreadIDs {
-		message, err := s.Store.GetMessage(ctx, id)
-		if err != nil {
-			continue
+		if message, err := s.Store.GetMessage(ctx, id); err == nil {
+			messages = append(messages, message)
 		}
-		body := message.Snippet
-		if full, err := s.Store.GetMessageBody(ctx, id); err == nil && full.TextBody != "" {
-			body = CleanBody(full.TextBody)
-		}
-		if len(body) > 600 {
-			body = body[:600] + "…"
-		}
-		idText := strconv.FormatInt(message.ID, 10)
-		requested[idText] = message.ID
-		fmt.Fprintf(&b, "<email id=%q>\n\t<from>%s <%s></from>\n\t<subject>%s</subject>\n\t<body>\n%s\n\t</body>\n</email>\n",
-			idText, message.From.Name, message.From.Email, message.Subject, body)
 	}
-	b.WriteString("\nTriage these emails.")
+	blocks, requested := s.taggedEmails(ctx, messages, 600)
+	prompt := blocks + "\nTriage these emails."
 
 	config, err := s.Config(ctx)
 	if err != nil {
@@ -404,7 +415,7 @@ func (s *Service) TriageInbox(ctx context.Context, accountID string) ([]TriageRe
 	}
 	options := []goai.Option{
 		goai.WithSystem(s.promptText(ctx, "triage", nil)),
-		goai.WithPrompt(b.String()),
+		goai.WithPrompt(prompt),
 		goai.WithMaxOutputTokens(2000),
 	}
 	if config.Provider == "ollama" {
@@ -442,6 +453,141 @@ func (s *Service) TriageInbox(ctx context.Context, accountID string) ([]TriageRe
 	return results, nil
 }
 
+// labeledEmail matches the label prompt's output schema. NewLabelDefinition
+// only appears when the escape hatch proposes a label that doesn't exist.
+type labeledEmail struct {
+	ID                 flexibleID `json:"id"`
+	Reason             string     `json:"reason"`
+	Label              string     `json:"label"`
+	NewLabelDefinition string     `json:"newLabelDefinition"`
+}
+
+// newLabelRule is spliced into the prompt only when the user allows the
+// classifier to invent labels. With it absent, an unknown name in the
+// output just falls to Other in code — belt and suspenders.
+const newLabelRule = `
+If an email belongs to no label and it represents a kind of mail the
+user plainly receives regularly, you may name a new label instead: set
+"label" to the new name (one or two words, capitalized like the others)
+and add "newLabelDefinition" in the same object — one sentence defining
+it in the labels' style. Both fields, always:
+{"id": "...", "reason": "bank statement, no label fits", "label": "Banking", "newLabelDefinition": "statements, deposits and payment alerts from banks and cards"}
+Use this sparingly — never a near-duplicate of an existing label, and
+never for a one-off email; those go to Other.`
+
+// aiLabelPalette rotates through unused accent colors for AI-created labels.
+var aiLabelPalette = []string{
+	"amber", "rose", "emerald", "sky", "fuchsia", "lime",
+}
+
+// LabelInbox classifies unlabeled inbox mail into the user's labels
+// (newest first, one batch). Unknown label names fall to Other unless the
+// escape-hatch setting is on, in which case up to three new labels per run
+// may be created. Returns how many messages were labeled.
+func (s *Service) LabelInbox(ctx context.Context, limit int) (int, error) {
+	labels, err := s.Store.ListLabels(ctx)
+	if err != nil {
+		return 0, err
+	}
+	messages, err := s.Store.MessagesWithoutLabel(ctx, limit)
+	if err != nil || len(messages) == 0 {
+		return 0, err
+	}
+
+	byName := map[string]store.Label{}
+	usedColors := map[string]bool{}
+	var defs strings.Builder
+	for _, label := range labels {
+		fmt.Fprintf(&defs, "- %s — %s\n", label.Name, label.Definition)
+		byName[strings.ToLower(label.Name)] = label
+		usedColors[label.Color] = true
+	}
+	allowCreate, _ := s.Store.SettingGet(ctx, SettingLabelCreate, "false")
+	rule := ""
+	if allowCreate == "true" {
+		rule = newLabelRule
+	}
+
+	system := s.promptText(ctx, "label", map[string]string{
+		"labels":         strings.TrimRight(defs.String(), "\n"),
+		"new_label_rule": rule,
+	})
+	blocks, requested := s.taggedEmails(ctx, messages, 600)
+
+	config, err := s.Config(ctx)
+	if err != nil {
+		return 0, err
+	}
+	model, _, err := s.model(ctx)
+	if err != nil {
+		return 0, err
+	}
+	options := []goai.Option{
+		goai.WithSystem(system),
+		goai.WithPrompt(blocks + "\nLabel these emails."),
+		goai.WithMaxOutputTokens(2000),
+	}
+	if config.Provider == "ollama" {
+		options = append(options, goai.WithProviderOptions(map[string]any{"think": false}))
+	}
+	result, err := generateDeterministic(ctx, model, options...)
+	if err != nil {
+		return 0, err
+	}
+
+	var labeled []labeledEmail
+	if err := json.Unmarshal([]byte(jsonArrayText(result.Text)), &labeled); err != nil {
+		return 0, fmt.Errorf("parse labels: %w", err)
+	}
+
+	count, created := 0, 0
+	for _, item := range labeled {
+		messageID, ok := requested[string(item.ID)]
+		if !ok {
+			continue // hallucinated or duplicate id — never label the wrong mail
+		}
+		delete(requested, string(item.ID))
+
+		name := strings.TrimSpace(item.Label)
+		label, known := byName[strings.ToLower(name)]
+		if !known {
+			definition := strings.TrimSpace(item.NewLabelDefinition)
+			if allowCreate == "true" && definition != "" && created < 3 &&
+				len(name) > 0 && len(name) <= 30 {
+				color := "slate"
+				for _, candidate := range aiLabelPalette {
+					if !usedColors[candidate] {
+						color = candidate
+						break
+					}
+				}
+				fresh, err := s.Store.CreateLabel(ctx, store.Label{
+					Name: name, Definition: definition, Color: color,
+					Icon: "Tag01Icon", CreatedBy: "ai",
+				})
+				if err == nil {
+					byName[strings.ToLower(fresh.Name)] = fresh
+					usedColors[fresh.Color] = true
+					created++
+					label = fresh
+					known = true
+				}
+			}
+			if !known {
+				label = byName["other"]
+			}
+		}
+		if label.ID == 0 {
+			continue // no Other label in a wiped DB — nothing safe to do
+		}
+		if err := s.Store.SetMessageLabel(ctx, messageID, label.ID, "ai"); err != nil {
+			return count, err
+		}
+		count++
+	}
+	return count, nil
+}
+
 // SuggestUnsubscribes is heuristic (List-Unsubscribe headers + sender
 // volume) — no model call needed.
 func (s *Service) SuggestUnsubscribes(ctx context.Context) ([]store.UnsubscribeCandidate, error) {
@@ -463,22 +609,8 @@ func (s *Service) GenerateListSummaries(ctx context.Context, limit int) (int, er
 		return 0, err
 	}
 
-	var b strings.Builder
-	requested := map[string]int64{}
-	for _, message := range messages {
-		body := message.Snippet
-		if full, err := s.Store.GetMessageBody(ctx, message.ID); err == nil && full.TextBody != "" {
-			body = CleanBody(full.TextBody)
-		}
-		if len(body) > 1200 {
-			body = body[:1200] + "…"
-		}
-		idText := strconv.FormatInt(message.ID, 10)
-		requested[idText] = message.ID
-		fmt.Fprintf(&b, "<email id=%q>\n\t<from>%s <%s></from>\n\t<subject>%s</subject>\n\t<body>\n%s\n\t</body>\n</email>\n",
-			idText, message.From.Name, message.From.Email, message.Subject, body)
-	}
-	b.WriteString("\nWrite the digests.")
+	blocks, requested := s.taggedEmails(ctx, messages, 1200)
+	prompt := blocks + "\nWrite the digests."
 
 	config, err := s.Config(ctx)
 	if err != nil {
@@ -490,7 +622,7 @@ func (s *Service) GenerateListSummaries(ctx context.Context, limit int) (int, er
 	}
 	options := []goai.Option{
 		goai.WithSystem(s.promptText(ctx, "list-digest", nil)),
-		goai.WithPrompt(b.String()),
+		goai.WithPrompt(prompt),
 		goai.WithMaxOutputTokens(2000),
 	}
 	if config.Provider == "ollama" {
