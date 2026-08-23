@@ -110,6 +110,13 @@ Aligned already:
   Items persist to the action_items table (done history survives
   re-extracts) and render as a checklist card in the reading pane —
   groundwork for the todo/calendar surface.
+- List digests (prompts/list-digest.md): the line renders next to
+  sender and subject, so it never restates them — words go to what
+  they don't say (specifics, outcome, ask; ask leads). Fragments,
+  18-word cap, report-don't-answer questions, batch <email id> JSON
+  schema with the same defensive parse as triage, temp 0. Cached
+  forever by message id (kind msg-summary); background pass batches
+  25 per call.
 - Translate (prompts/translate.md): meaning-not-words, never-translate
   list (names/addresses/URLs/codes), formality matching, flipped
   injection rule (embedded instructions get translated, never followed),
@@ -134,7 +141,6 @@ Pending (waiting on per-feature passes):
 - Reply intent upgrades (from the prompt notes): optional hint field
   ("say yes", "push back") layered on the same prompt, or three-variant
   accept/decline/defer generation.
-- List digests: same treatment.
 - Todo/calendar surface over the action_items table (global list, dates).
 - Sanitization pass: zero-width/bidi/control chars, HTML comments,
   CSS-hidden text.

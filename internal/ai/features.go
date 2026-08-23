@@ -427,15 +427,15 @@ func (s *Service) SuggestUnsubscribes(ctx context.Context) ([]store.UnsubscribeC
 	return s.Store.UnsubscribeCandidates(ctx, 20)
 }
 
-type summariesOutput struct {
-	Summaries []struct {
-		ID      int64  `json:"id"`
-		Summary string `json:"summary"`
-	} `json:"summaries"`
+// digestedEmail matches the prompt's output schema.
+type digestedEmail struct {
+	ID     flexibleID `json:"id"`
+	Digest string     `json:"digest"`
 }
 
 // GenerateListSummaries backfills one-line digests for recent inbox messages
-// missing them (the opt-in list-row summaries). Returns how many were made.
+// missing them (the opt-in list-row summaries). Digests cache by message id
+// and never expire — the email doesn't change. Returns how many were made.
 func (s *Service) GenerateListSummaries(ctx context.Context, limit int) (int, error) {
 	messages, err := s.Store.MessagesWithoutArtifact(ctx, store.ArtifactMessageSummary, limit)
 	if err != nil || len(messages) == 0 {
@@ -443,38 +443,58 @@ func (s *Service) GenerateListSummaries(ctx context.Context, limit int) (int, er
 	}
 
 	var b strings.Builder
+	requested := map[string]int64{}
 	for _, message := range messages {
-		body, _ := s.Store.GetMessageBody(ctx, message.ID)
-		text := body.TextBody
-		if len(text) > 1500 {
-			text = text[:1500]
+		body := message.Snippet
+		if full, err := s.Store.GetMessageBody(ctx, message.ID); err == nil && full.TextBody != "" {
+			body = CleanBody(full.TextBody)
 		}
-		if text == "" {
-			text = message.Snippet
+		if len(body) > 1200 {
+			body = body[:1200] + "…"
 		}
-		fmt.Fprintf(&b, "id=%d | from: %s | subject: %s\n%s\n\n===\n\n",
-			message.ID, message.From.Email, message.Subject, text)
+		idText := strconv.FormatInt(message.ID, 10)
+		requested[idText] = message.ID
+		fmt.Fprintf(&b, "<email id=%q>\n\t<from>%s <%s></from>\n\t<subject>%s</subject>\n\t<body>\n%s\n\t</body>\n</email>\n",
+			idText, message.From.Name, message.From.Email, message.Subject, body)
 	}
+	b.WriteString("\nWrite the digests.")
 
+	config, err := s.Config(ctx)
+	if err != nil {
+		return 0, err
+	}
 	model, _, err := s.model(ctx)
 	if err != nil {
 		return 0, err
 	}
-	result, err := goai.GenerateObject[summariesOutput](ctx, model,
+	options := []goai.Option{
 		goai.WithSystem(s.promptText(ctx, "list-digest", nil)),
 		goai.WithPrompt(b.String()),
-	)
+		goai.WithMaxOutputTokens(2000),
+		goai.WithTemperature(0),
+	}
+	if config.Provider == "ollama" {
+		options = append(options, goai.WithProviderOptions(map[string]any{"think": false}))
+	}
+	result, err := goai.GenerateText(ctx, model, options...)
 	if err != nil {
 		return 0, err
 	}
 
+	var digests []digestedEmail
+	if err := json.Unmarshal([]byte(jsonArrayText(result.Text)), &digests); err != nil {
+		return 0, fmt.Errorf("parse digests: %w", err)
+	}
+
 	count := 0
-	for _, item := range result.Object.Summaries {
-		if item.Summary == "" {
-			continue
+	for _, item := range digests {
+		messageID, ok := requested[string(item.ID)]
+		if !ok || strings.TrimSpace(item.Digest) == "" {
+			continue // hallucinated or duplicate id — never caption the wrong mail
 		}
+		delete(requested, string(item.ID))
 		if err := s.Store.ArtifactSet(ctx, store.ArtifactMessageSummary,
-			strconv.FormatInt(item.ID, 10), item.Summary, ""); err != nil {
+			strconv.FormatInt(messageID, 10), strings.TrimSpace(item.Digest), ""); err != nil {
 			return count, err
 		}
 		count++

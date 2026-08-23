@@ -221,7 +221,8 @@ func (a *AIService) generateSummaries() {
 	if !config.HasKey && config.Provider != "ollama" {
 		return
 	}
-	count, err := service.GenerateListSummaries(ctx, 10)
+	// Batch generously — one call per 25 messages, cached forever by id.
+	count, err := service.GenerateListSummaries(ctx, 25)
 	if err != nil {
 		log.Printf("list summaries: %v", err)
 		return
