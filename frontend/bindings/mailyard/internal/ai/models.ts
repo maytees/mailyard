@@ -45,6 +45,22 @@ export interface Config {
 }
 
 /**
+ * PromptInfo is PromptDef plus the user's current override ("" = default).
+ */
+export interface PromptInfo {
+    "id": string;
+    "title": string;
+    "description": string;
+
+    /**
+     * Placeholders substituted into the template at request time.
+     */
+    "placeholders": string[] | null;
+    "default": string;
+    "custom": string;
+}
+
+/**
  * StreamChunk is one event on the "ai:stream" channel. Seq orders chunks:
  * Wails dispatches each emitted event on its own goroutine, so back-to-back
  * emits can arrive out of order — the frontend reassembles by Seq.

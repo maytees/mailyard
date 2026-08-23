@@ -5,6 +5,7 @@ export type {
     ActionItem,
     ComposeRequest,
     Config,
+    PromptInfo,
     StreamChunk,
     TriageResult
 } from "./models.js";

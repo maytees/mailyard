@@ -149,6 +149,57 @@ func TestSummarizeReplaysCache(t *testing.T) {
 	}
 }
 
+func TestPromptOverrides(t *testing.T) {
+	service, _ := testService(t)
+	ctx := context.Background()
+
+	// Defaults resolve with substitution.
+	text := service.promptText(ctx, "rewrite", map[string]string{"tone": "formal"})
+	if !strings.Contains(text, "to be formal") {
+		t.Fatalf("default template not filled: %q", text)
+	}
+
+	// Overrides win and substitute too.
+	if err := service.SetPrompt(ctx, "rewrite", "Rewrite it {tone}, cowboy style."); err != nil {
+		t.Fatalf("set prompt: %v", err)
+	}
+	text = service.promptText(ctx, "rewrite", map[string]string{"tone": "formal"})
+	if text != "Rewrite it formal, cowboy style." {
+		t.Fatalf("override ignored: %q", text)
+	}
+
+	// Listing reports the override; empty resets it.
+	prompts, err := service.ListPrompts(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	found := false
+	for _, prompt := range prompts {
+		if prompt.ID == "rewrite" {
+			found = true
+			if prompt.Custom == "" {
+				t.Fatal("override not reported")
+			}
+		} else if prompt.Custom != "" {
+			t.Fatalf("unexpected override on %s", prompt.ID)
+		}
+	}
+	if !found {
+		t.Fatal("rewrite prompt missing from list")
+	}
+	if err := service.SetPrompt(ctx, "rewrite", ""); err != nil {
+		t.Fatalf("reset: %v", err)
+	}
+	if text := service.promptText(ctx, "rewrite", map[string]string{"tone": "x"}); !strings.Contains(text, "Keep the meaning") {
+		t.Fatalf("reset didn't restore default: %q", text)
+	}
+
+	// Unknown ids are rejected.
+	if err := service.SetPrompt(ctx, "nope", "x"); err == nil {
+		t.Fatal("unknown prompt accepted")
+	}
+}
+
 func TestSanitizeSummary(t *testing.T) {
 	messy := "Here's a **clean and concise summary** of the thread:\n\n" +
 		"---\n\n### **Summary:**\n\n" +

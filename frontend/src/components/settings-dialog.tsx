@@ -10,6 +10,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { useAccountsStore } from "@/stores/accounts"
 import { loadAIConfig, useAIStore } from "@/stores/ai"
 import { refreshMailList, refreshUnreadCounts } from "@/stores/mail"
@@ -252,6 +253,7 @@ function AISection() {
 	const [listSummaries, setListSummaries] = React.useState(false)
 	const [busy, setBusy] = React.useState(false)
 	const [loaded, setLoaded] = React.useState(false)
+	const [promptsOpen, setPromptsOpen] = React.useState(false)
 
 	// Seed the form from live config once per dialog lifetime.
 	if (config && !loaded) {
@@ -330,15 +332,164 @@ function AISection() {
 				/>
 				AI digests in the mail list (replaces snippets, uses tokens)
 			</label>
-			<Button
-				size="sm"
-				className="self-start"
-				disabled={busy}
-				onClick={() => void save()}
-			>
-				{busy ? "Saving…" : "Save AI settings"}
-			</Button>
+			<div className="flex flex-row gap-2">
+				<Button size="sm" disabled={busy} onClick={() => void save()}>
+					{busy ? "Saving…" : "Save AI settings"}
+				</Button>
+				<Button
+					variant="outline"
+					size="sm"
+					onClick={() => setPromptsOpen(true)}
+				>
+					Customize instructions…
+				</Button>
+			</div>
+			<PromptEditorDialog open={promptsOpen} onOpenChange={setPromptsOpen} />
 		</Section>
+	)
+}
+
+// ---- ai instruction editor -------------------------------------------------
+
+type PromptInfo = {
+	id: string
+	title: string
+	description: string
+	placeholders: string[] | null
+	default: string
+	custom: string
+}
+
+/** Full control over every AI system prompt; defaults live in
+ * internal/ai/prompts.go. */
+function PromptEditorDialog({
+	open,
+	onOpenChange,
+}: {
+	open: boolean
+	onOpenChange: (open: boolean) => void
+}) {
+	const [prompts, setPrompts] = React.useState<PromptInfo[]>([])
+	const [selectedId, setSelectedId] = React.useState("")
+	const [text, setText] = React.useState("")
+	const [busy, setBusy] = React.useState(false)
+
+	const selected = prompts.find((prompt) => prompt.id === selectedId)
+
+	React.useEffect(() => {
+		if (!open) return
+		let cancelled = false
+		AIService.ListPrompts()
+			.then((raw) => {
+				if (cancelled) return
+				const list = (raw ?? []) as PromptInfo[]
+				setPrompts(list)
+				const first = list[0]
+				if (first) {
+					setSelectedId(first.id)
+					setText(first.custom || first.default)
+				}
+			})
+			.catch((raw: unknown) => toast.error(errorText(raw)))
+		return () => {
+			cancelled = true
+		}
+	}, [open])
+
+	const pick = (id: string) => {
+		setSelectedId(id)
+		const prompt = prompts.find((p) => p.id === id)
+		if (prompt) setText(prompt.custom || prompt.default)
+	}
+
+	const save = async (value: string) => {
+		if (!selected) return
+		setBusy(true)
+		try {
+			await AIService.SetPrompt(selected.id, value)
+			const refreshed = ((await AIService.ListPrompts()) ?? []) as PromptInfo[]
+			setPrompts(refreshed)
+			toast.success(
+				value ? `“${selected.title}” instructions saved` : `“${selected.title}” reset to default`
+			)
+			if (!value) setText(selected.default)
+		} catch (raw: unknown) {
+			toast.error(errorText(raw))
+		} finally {
+			setBusy(false)
+		}
+	}
+
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent className="sm:max-w-2xl">
+				<DialogHeader>
+					<DialogTitle>AI instructions</DialogTitle>
+					<DialogDescription>
+						Every prompt Mailyard sends is editable. Placeholders in braces
+						are filled at request time.
+					</DialogDescription>
+				</DialogHeader>
+
+				<div className="flex flex-col gap-3">
+					<select
+						value={selectedId}
+						onChange={(e) => pick(e.target.value)}
+						className="h-9 cursor-pointer rounded-3xl border border-transparent bg-input/50 px-3 text-sm outline-none"
+					>
+						{prompts.map((prompt) => (
+							<option key={prompt.id} value={prompt.id}>
+								{prompt.title}
+								{prompt.custom ? " • customized" : ""}
+							</option>
+						))}
+					</select>
+
+					{selected && (
+						<>
+							<p className="text-xs text-muted-foreground">
+								{selected.description}
+								{selected.placeholders && selected.placeholders.length > 0 && (
+									<>
+										{" — placeholders: "}
+										{selected.placeholders.map((name) => (
+											<code
+												key={name}
+												className="mx-0.5 rounded bg-muted px-1"
+											>
+												{`{${name}}`}
+											</code>
+										))}
+									</>
+								)}
+							</p>
+							<Textarea
+								value={text}
+								onChange={(e) => setText(e.target.value)}
+								className="h-64 resize-none font-mono text-xs leading-relaxed"
+							/>
+							<div className="flex flex-row justify-end gap-2">
+								<Button
+									variant="ghost"
+									size="sm"
+									disabled={busy || !selected.custom}
+									onClick={() => void save("")}
+								>
+									Reset to default
+								</Button>
+								<Button
+									size="sm"
+									disabled={busy || !text.trim()}
+									onClick={() => void save(text)}
+								>
+									{busy ? "Saving…" : "Save instructions"}
+								</Button>
+							</div>
+						</>
+					)}
+				</div>
+			</DialogContent>
+		</Dialog>
 	)
 }
 

@@ -57,6 +57,24 @@ func (a *AIService) SetConfig(ctx context.Context, provider, model string, listS
 	return nil
 }
 
+// ListPrompts returns every AI instruction with its current override.
+func (a *AIService) ListPrompts(ctx context.Context) ([]ai.PromptInfo, error) {
+	service, err := a.svc()
+	if err != nil {
+		return nil, err
+	}
+	return service.ListPrompts(ctx)
+}
+
+// SetPrompt overrides one instruction; empty text resets to the default.
+func (a *AIService) SetPrompt(ctx context.Context, id, custom string) error {
+	service, err := a.svc()
+	if err != nil {
+		return err
+	}
+	return service.SetPrompt(ctx, id, custom)
+}
+
 func (a *AIService) SummarizeThread(ctx context.Context, accountID, threadID string) (string, error) {
 	service, err := a.svc()
 	if err != nil {
@@ -86,7 +104,7 @@ func (a *AIService) Rewrite(ctx context.Context, text, tone string) (string, err
 	if err != nil {
 		return "", err
 	}
-	return service.Rewrite(text, tone)
+	return service.Rewrite(ctx, text, tone)
 }
 
 func (a *AIService) Translate(ctx context.Context, text, language string) (string, error) {
@@ -94,7 +112,7 @@ func (a *AIService) Translate(ctx context.Context, text, language string) (strin
 	if err != nil {
 		return "", err
 	}
-	return service.Translate(text, language)
+	return service.Translate(ctx, text, language)
 }
 
 func (a *AIService) ActionItems(ctx context.Context, accountID, threadID string) ([]ai.ActionItem, error) {

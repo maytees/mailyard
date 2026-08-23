@@ -35,6 +35,13 @@ export function GetConfig(): $CancellablePromise<ai$0.Config> {
 }
 
 /**
+ * ListPrompts returns every AI instruction with its current override.
+ */
+export function ListPrompts(): $CancellablePromise<ai$0.PromptInfo[] | null> {
+    return $Call.ByID(1613469218);
+}
+
+/**
  * MessageArtifacts bulk-fetches per-message AI outputs for list rendering
  * (kind: "msg-summary" digests or "triage" labels), keyed by message id.
  */
@@ -48,6 +55,13 @@ export function Rewrite(text: string, tone: string): $CancellablePromise<string>
 
 export function SetConfig(provider: string, model: string, listSummaries: boolean, apiKey: string): $CancellablePromise<void> {
     return $Call.ByID(833121423, provider, model, listSummaries, apiKey);
+}
+
+/**
+ * SetPrompt overrides one instruction; empty text resets to the default.
+ */
+export function SetPrompt(id: string, custom: string): $CancellablePromise<void> {
+    return $Call.ByID(3495695763, id, custom);
 }
 
 export function SuggestUnsubscribes(): $CancellablePromise<store$0.UnsubscribeCandidate[] | null> {

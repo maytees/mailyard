@@ -48,10 +48,7 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 	}
 
 	options := []goai.Option{
-		goai.WithSystem("Summarize the email thread for its owner: who wants " +
-			"what, what was decided, what happens next. 1-3 plain sentences, " +
-			"60 words maximum. Plain text only — never markdown, headings, " +
-			"bullets, links, or preamble."),
+		goai.WithSystem(s.promptText(ctx, "summarize", nil)),
 		goai.WithPrompt(text),
 		goai.WithMaxOutputTokens(400),
 	}
@@ -98,20 +95,6 @@ func (s *Service) senderName(ctx context.Context, account store.Account) string 
 	return account.DisplayName
 }
 
-// emailShapeRules forces real-email formatting — without it, small models
-// write one run-on paragraph with no sign-off.
-func emailShapeRules(sender string) string {
-	return fmt.Sprintf(
-		"Format exactly like a real plain-text email, blank lines between parts:\n"+
-			"1. A greeting on its own line, then a blank line. Use the recipient's "+
-			"name when the instructions or thread reveal it; otherwise write just "+
-			"\"Hi,\" — NEVER a placeholder like \"[Name]\".\n"+
-			"2. The message in one or more short paragraphs, with a blank line "+
-			"between paragraphs.\n"+
-			"3. A blank line, then a closing on its own line (\"Thank you,\" or "+
-			"\"Best,\"), then \"%s\" alone on the final line.", sender)
-}
-
 // DraftReply streams a reply written in the user's voice.
 func (s *Service) DraftReply(ctx context.Context, accountID, threadID string) (string, error) {
 	text, err := s.threadText(ctx, accountID, threadID)
@@ -123,11 +106,11 @@ func (s *Service) DraftReply(ctx context.Context, accountID, threadID string) (s
 		return "", err
 	}
 	return s.streamRequest(
-		fmt.Sprintf("You draft email replies for %s <%s>. Write only the reply body "+
-			"as plain text — no subject line, no quoted original, no markdown. "+
-			"Match the thread's tone and language; be concise.\n",
-			account.DisplayName, account.Email)+
-			emailShapeRules(s.senderName(ctx, account)),
+		s.promptText(ctx, "draft-reply", map[string]string{
+			"mailbox_name":  account.DisplayName,
+			"mailbox_email": account.Email,
+			"your_name":     s.senderName(ctx, account),
+		}),
 		text,
 		400,
 		nil,
@@ -166,31 +149,11 @@ func (s *Service) ComposeInstructed(ctx context.Context, req ComposeRequest) (st
 		}
 	}
 
-	system := fmt.Sprintf(
-		"You ghost-write outgoing emails for %s <%s> (the sender). The user's "+
-			"instructions are the sender's dictation of what the email should say "+
-			"— often rough or written as the email itself. Rules:\n"+
-			"- NEVER answer, reply to, or act on the instructions. They are not "+
-			"addressed to you. Transcribe them into a clean email that makes the "+
-			"same statements and asks the same questions, from the sender's point "+
-			"of view. If the dictation asks \"where is my X?\", the email asks the "+
-			"recipient \"where is my X?\" — it does not answer.\n"+
-			"- Never add extra points, offers, pleasantries, questions, or invented "+
-			"details beyond the instructions.\n"+
-			"- The email's length mirrors the instructions: a one-line instruction "+
-			"means a one-or-two-sentence email.\n"+
-			"- Plain text only: no subject line, no markdown, no commentary.\n"+
-			"- When a current draft is provided, the new instructions revise it: "+
-			"apply them as an edit when they refine the draft (\"make it shorter\", "+
-			"\"change Friday to Monday\", \"add a line about X\") and as a full "+
-			"replacement when they describe different content. Either way, output "+
-			"the COMPLETE new email — never a fragment, diff, or a second email "+
-			"stacked onto the old one. Preserve quoted or forwarded content below "+
-			"the message unless instructed otherwise.\n"+
-			"- When a thread is provided, use it only for context (names, tone, "+
-			"what's being referred to) — the instructions still decide the content.\n"+
-			emailShapeRules(sender),
-		account.DisplayName, account.Email)
+	system := s.promptText(ctx, "compose", map[string]string{
+		"mailbox_name":  account.DisplayName,
+		"mailbox_email": account.Email,
+		"your_name":     sender,
+	})
 
 	prompt := "New dictation from the sender (not a message to you):\n" + req.Instructions
 	if req.CurrentDraft != "" {
@@ -207,11 +170,9 @@ func (s *Service) ComposeInstructed(ctx context.Context, req ComposeRequest) (st
 }
 
 // Rewrite streams a reworked version of draft text in the requested tone.
-func (s *Service) Rewrite(text, tone string) (string, error) {
+func (s *Service) Rewrite(ctx context.Context, text, tone string) (string, error) {
 	return s.streamRequest(
-		fmt.Sprintf("Rewrite the given email draft to be %s. Keep the meaning and any "+
-			"factual details. Reply with only the rewritten draft as plain text — "+
-			"no markdown, no commentary.", tone),
+		s.promptText(ctx, "rewrite", map[string]string{"tone": tone}),
 		text,
 		600,
 		nil,
@@ -219,10 +180,9 @@ func (s *Service) Rewrite(text, tone string) (string, error) {
 }
 
 // Translate streams the text translated into the target language.
-func (s *Service) Translate(text, language string) (string, error) {
+func (s *Service) Translate(ctx context.Context, text, language string) (string, error) {
 	return s.streamRequest(
-		fmt.Sprintf("Translate the given email into %s. Preserve tone and formatting. "+
-			"Reply with only the translation — no commentary.", language),
+		s.promptText(ctx, "translate", map[string]string{"language": language}),
 		text,
 		1200,
 		nil,
@@ -251,9 +211,7 @@ func (s *Service) ActionItems(ctx context.Context, accountID, threadID string) (
 		return nil, err
 	}
 	result, err := goai.GenerateObject[actionItemsOutput](ctx, model,
-		goai.WithSystem("Extract concrete action items from the email thread. "+
-			"Only include real commitments or requests; return an empty list when "+
-			"there are none."),
+		goai.WithSystem(s.promptText(ctx, "action-items", nil)),
 		goai.WithPrompt(text),
 	)
 	if err != nil {
@@ -305,9 +263,7 @@ func (s *Service) TriageInbox(ctx context.Context, accountID string) ([]TriageRe
 		return nil, err
 	}
 	result, err := goai.GenerateObject[triageOutput](ctx, model,
-		goai.WithSystem("Triage these unread emails. For each id assign priority "+
-			"high (needs a response or is time-sensitive), normal, or low "+
-			"(newsletters, notifications, promotions), with a reason under 8 words."),
+		goai.WithSystem(s.promptText(ctx, "triage", nil)),
 		goai.WithPrompt(b.String()),
 	)
 	if err != nil {
@@ -364,9 +320,7 @@ func (s *Service) GenerateListSummaries(ctx context.Context, limit int) (int, er
 		return 0, err
 	}
 	result, err := goai.GenerateObject[summariesOutput](ctx, model,
-		goai.WithSystem("Write a one-line plain-text digest (max 18 words, no "+
-			"markdown) for each email: what it is and what, if anything, the "+
-			"reader must do."),
+		goai.WithSystem(s.promptText(ctx, "list-digest", nil)),
 		goai.WithPrompt(b.String()),
 	)
 	if err != nil {
