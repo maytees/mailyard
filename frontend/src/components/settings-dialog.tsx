@@ -53,7 +53,9 @@ export function SettingsDialog() {
 				<DialogHeader>
 					<DialogTitle>Settings</DialogTitle>
 				</DialogHeader>
-				<div className="flex max-h-[65vh] flex-col gap-7 overflow-y-auto pr-1">
+				{/* p-1 keeps borders/focus rings from clipping on the overflow
+				    boundary. */}
+				<div className="flex max-h-[65vh] flex-col gap-7 overflow-y-auto p-1">
 					<GeneralSection />
 					<MailboxesSection />
 					<AISection />
