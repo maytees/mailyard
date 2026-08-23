@@ -8,8 +8,6 @@
 		<string>A unified AI mailbox.</string>
 		<key>CFBundleIconFile</key>
 		<string>icons</string>
-		<key>CFBundleIconName</key>
-		<string>appicon</string>
 		<key>CFBundleIdentifier</key>
 		<string>com.maytees.mailyard</string>
 		<key>CFBundleName</key>
