@@ -13,6 +13,10 @@
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
 /**
  * Export prompts for a destination and writes the archive. Returns the path,
  * or "" when the user cancels.
@@ -27,4 +31,12 @@ export function Export(): $CancellablePromise<string> {
  */
 export function Import(): $CancellablePromise<string> {
     return $Call.ByID(4116825615);
+}
+
+/**
+ * ResetData deletes the selected categories. The frontend reloads afterwards,
+ * so no change events are emitted here.
+ */
+export function ResetData(options: $models.ResetOptions): $CancellablePromise<void> {
+    return $Call.ByID(464625957, options);
 }

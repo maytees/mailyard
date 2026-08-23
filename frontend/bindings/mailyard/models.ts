@@ -15,3 +15,35 @@ export interface PickedFile {
     "name": string;
     "size": number;
 }
+
+/**
+ * ResetOptions selects data categories for ResetData — coarse subjects, not
+ * individual items.
+ */
+export interface ResetOptions {
+    /**
+     * Mailboxes removes every account, its credentials and all of its mail.
+     */
+    "mailboxes": boolean;
+
+    /**
+     * Mail wipes the downloaded message cache; accounts stay and re-sync.
+     */
+    "mail": boolean;
+
+    /**
+     * Drafts deletes all drafts, server-side too (best effort).
+     */
+    "drafts": boolean;
+
+    /**
+     * AICache clears cached summaries, digests and triage labels.
+     */
+    "aiCache": boolean;
+
+    /**
+     * Preferences clears the settings KV (name, sync & AI config) and the
+     * AI API key.
+     */
+    "preferences": boolean;
+}

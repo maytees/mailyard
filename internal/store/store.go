@@ -74,6 +74,39 @@ func (s *Store) VacuumInto(ctx context.Context, path string) error {
 // distinct from per-mailbox display names like "Personal".
 const SettingUserName = "user_name"
 
+// WipeMail deletes every downloaded message (bodies/attachments cascade,
+// search index cleared) and resets folder sync state so accounts re-sync
+// from scratch. Accounts themselves stay.
+func (s *Store) WipeMail(ctx context.Context) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, stmt := range []string{
+		`DELETE FROM messages_fts`,
+		`DELETE FROM messages`,
+		`UPDATE folders SET uidvalidity = 0, uidnext = 0, last_synced_at = 0`,
+	} {
+		if _, err := tx.ExecContext(ctx, stmt); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// WipeArtifacts clears every cached AI output (summaries, digests, triage).
+func (s *Store) WipeArtifacts(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM ai_artifacts`)
+	return err
+}
+
+// WipeSettings clears the settings KV (user name, sync tunables, AI config).
+func (s *Store) WipeSettings(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM settings`)
+	return err
+}
+
 // SettingGet returns the stored value for key, or fallback when unset.
 func (s *Store) SettingGet(ctx context.Context, key, fallback string) (string, error) {
 	var value string

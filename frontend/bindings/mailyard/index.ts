@@ -24,5 +24,6 @@ export {
 
 export type {
     AppSettings,
-    PickedFile
+    PickedFile,
+    ResetOptions
 } from "./models.js";

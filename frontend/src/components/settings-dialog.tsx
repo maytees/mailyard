@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import {
 	Dialog,
 	DialogContent,
+	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog"
@@ -444,8 +445,141 @@ function AppearanceSection() {
 
 // ---- data ------------------------------------------------------------------
 
+// Reset categories — coarse subjects, not individual items.
+const RESET_CATEGORIES = [
+	{
+		key: "mailboxes",
+		label: "Mailboxes",
+		description: "All accounts, their passwords and every downloaded email",
+	},
+	{
+		key: "mail",
+		label: "Downloaded mail",
+		description: "The local message cache — accounts stay and re-sync fresh",
+	},
+	{
+		key: "drafts",
+		label: "Drafts",
+		description: "Every draft, including the copies on your mail servers",
+	},
+	{
+		key: "aiCache",
+		label: "AI cache",
+		description: "Cached summaries, list digests and triage labels",
+	},
+	{
+		key: "preferences",
+		label: "Preferences",
+		description: "Your name, sync & AI settings, API key, appearance",
+	},
+] as const
+
+type ResetKey = (typeof RESET_CATEGORIES)[number]["key"]
+
+function ResetDataDialog({
+	open,
+	onOpenChange,
+}: {
+	open: boolean
+	onOpenChange: (open: boolean) => void
+}) {
+	const [selected, setSelected] = React.useState<Set<ResetKey>>(new Set())
+	const [busy, setBusy] = React.useState(false)
+
+	const toggle = (key: ResetKey) =>
+		setSelected((current) => {
+			const next = new Set(current)
+			if (next.has(key)) next.delete(key)
+			else next.add(key)
+			return next
+		})
+
+	const reset = async () => {
+		setBusy(true)
+		try {
+			await TransferService.ResetData({
+				mailboxes: selected.has("mailboxes"),
+				mail: selected.has("mail"),
+				drafts: selected.has("drafts"),
+				aiCache: selected.has("aiCache"),
+				preferences: selected.has("preferences"),
+			})
+			if (selected.has("preferences")) {
+				// Frontend-side preferences live in localStorage.
+				localStorage.removeItem("settings")
+				localStorage.removeItem("theme")
+				localStorage.removeItem("mailyard-draft-backup")
+			}
+			// A reload is the cleanest way to reflect wiped state everywhere.
+			window.location.reload()
+		} catch (raw: unknown) {
+			toast.error(errorText(raw))
+			setBusy(false)
+		}
+	}
+
+	return (
+		<Dialog
+			open={open}
+			onOpenChange={(next) => {
+				if (!busy) {
+					setSelected(new Set())
+					onOpenChange(next)
+				}
+			}}
+		>
+			<DialogContent className="sm:max-w-md">
+				<DialogHeader>
+					<DialogTitle>Reset data</DialogTitle>
+					<DialogDescription>
+						Pick what to delete. This cannot be undone.
+					</DialogDescription>
+				</DialogHeader>
+				<div className="flex flex-col gap-2.5">
+					{RESET_CATEGORIES.map((category) => (
+						<label
+							key={category.key}
+							className="flex cursor-pointer flex-row items-start gap-2.5 rounded-2xl border px-3 py-2.5 hover:bg-muted/40"
+						>
+							<input
+								type="checkbox"
+								checked={selected.has(category.key)}
+								onChange={() => toggle(category.key)}
+								className="mt-0.5 accent-primary"
+							/>
+							<span className="flex flex-col">
+								<span className="text-sm font-medium">{category.label}</span>
+								<span className="text-xs text-muted-foreground">
+									{category.description}
+								</span>
+							</span>
+						</label>
+					))}
+				</div>
+				<div className="flex flex-row justify-end gap-2">
+					<Button
+						variant="ghost"
+						disabled={busy}
+						onClick={() => onOpenChange(false)}
+					>
+						Cancel
+					</Button>
+					<Button
+						variant="destructive"
+						disabled={busy || selected.size === 0}
+						onClick={() => void reset()}
+					>
+						{busy ? "Deleting…" : `Delete selected (${selected.size})`}
+					</Button>
+				</div>
+			</DialogContent>
+		</Dialog>
+	)
+}
+
 function DataSection() {
 	const [busy, setBusy] = React.useState(false)
+	const [resetOpen, setResetOpen] = React.useState(false)
 
 	const doExport = async () => {
 		setBusy(true)
@@ -487,7 +621,17 @@ function DataSection() {
 				<Button variant="outline" size="sm" disabled={busy} onClick={() => void doImport()}>
 					Import data…
 				</Button>
+				<Button
+					variant="outline"
+					size="sm"
+					className="text-destructive"
+					disabled={busy}
+					onClick={() => setResetOpen(true)}
+				>
+					Reset data…
+				</Button>
 			</div>
+			<ResetDataDialog open={resetOpen} onOpenChange={setResetOpen} />
 		</Section>
 	)
 }

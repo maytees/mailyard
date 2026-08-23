@@ -11,6 +11,9 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"mailyard/internal/secrets"
+	"mailyard/internal/store"
 )
 
 // TransferService implements the palette's Export/Import Data commands: a
@@ -144,6 +147,94 @@ func (t *TransferService) Import(ctx context.Context) (string, error) {
 	app := application.Get()
 	app.Event.Emit("accounts:changed", true)
 	return path, nil
+}
+
+// ResetOptions selects data categories for ResetData — coarse subjects, not
+// individual items.
+type ResetOptions struct {
+	// Mailboxes removes every account, its credentials and all of its mail.
+	Mailboxes bool `json:"mailboxes"`
+	// Mail wipes the downloaded message cache; accounts stay and re-sync.
+	Mail bool `json:"mail"`
+	// Drafts deletes all drafts, server-side too (best effort).
+	Drafts bool `json:"drafts"`
+	// AICache clears cached summaries, digests and triage labels.
+	AICache bool `json:"aiCache"`
+	// Preferences clears the settings KV (name, sync & AI config) and the
+	// AI API key.
+	Preferences bool `json:"preferences"`
+}
+
+// ResetData deletes the selected categories. The frontend reloads afterwards,
+// so no change events are emitted here.
+func (t *TransferService) ResetData(ctx context.Context, options ResetOptions) error {
+	st := t.boot.storeHandle()
+	if st == nil {
+		return fmt.Errorf("database is not available")
+	}
+
+	// Drafts first: server-side deletion needs the accounts and the engine
+	// to still exist. Skipped when a broader wipe makes it redundant.
+	if options.Drafts && !options.Mailboxes && !options.Mail {
+		drafts, err := st.ListMessages(ctx, store.ListFilter{
+			FolderRole: store.RoleDrafts, Limit: 10000,
+		})
+		if err != nil {
+			return err
+		}
+		engine := t.sync.engineHandle()
+		for _, draft := range drafts {
+			if engine != nil {
+				if err := engine.DeleteDraft(ctx, draft.ID); err == nil {
+					continue
+				}
+			}
+			// Offline fallback: local only (the server copy re-syncs later).
+			if err := st.DeleteMessage(ctx, draft.ID); err != nil {
+				return err
+			}
+		}
+	}
+
+	if options.Mailboxes {
+		t.sync.stop()
+		accounts, err := st.ListAccounts(ctx)
+		if err != nil {
+			return err
+		}
+		vault := secrets.Keychain{}
+		for _, account := range accounts {
+			if err := st.DeleteAccount(ctx, account.ID); err != nil {
+				return err
+			}
+			vault.Delete(account.ID)
+		}
+		t.sync.start()
+	} else if options.Mail {
+		t.sync.stop()
+		if err := st.WipeMail(ctx); err != nil {
+			return err
+		}
+		t.sync.start()
+	}
+
+	if options.AICache {
+		if err := st.WipeArtifacts(ctx); err != nil {
+			return err
+		}
+	}
+
+	if options.Preferences {
+		if err := st.WipeSettings(ctx); err != nil {
+			return err
+		}
+		secrets.Keychain{}.Delete(secrets.AIKeyName)
+		// Sync tunables changed back to defaults.
+		t.sync.stop()
+		t.sync.start()
+	}
+
+	return nil
 }
 
 func writeZipFile(writer *zip.Writer, name string, data []byte) error {
