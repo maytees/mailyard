@@ -79,6 +79,27 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 	return requestID, nil
 }
 
+// senderName is the person's configured name, falling back to the mailbox's
+// display name for pre-onboarding databases.
+func (s *Service) senderName(ctx context.Context, account store.Account) string {
+	if name, err := s.Store.SettingGet(ctx, store.SettingUserName, ""); err == nil && name != "" {
+		return name
+	}
+	return account.DisplayName
+}
+
+// emailShapeRules forces real-email formatting — without it, small models
+// write one run-on paragraph with no sign-off.
+func emailShapeRules(sender string) string {
+	return fmt.Sprintf(
+		"Format exactly like a real plain-text email, blank lines between parts:\n"+
+			"1. A greeting on its own line (e.g. \"Hi Jamie,\"), then a blank line.\n"+
+			"2. The message in one or more short paragraphs, with a blank line "+
+			"between paragraphs.\n"+
+			"3. A blank line, then a closing on its own line (\"Thank you,\" or "+
+			"\"Best,\"), then \"%s\" alone on the final line.", sender)
+}
+
 // DraftReply streams a reply written in the user's voice.
 func (s *Service) DraftReply(ctx context.Context, accountID, threadID string) (string, error) {
 	text, err := s.threadText(ctx, accountID, threadID)
@@ -91,9 +112,10 @@ func (s *Service) DraftReply(ctx context.Context, accountID, threadID string) (s
 	}
 	return s.streamRequest(
 		fmt.Sprintf("You draft email replies for %s <%s>. Write only the reply body "+
-			"as plain text — no subject line, no quoted original, no signature "+
-			"placeholders, no markdown. Match the thread's tone and language; be "+
-			"concise.", account.DisplayName, account.Email),
+			"as plain text — no subject line, no quoted original, no markdown. "+
+			"Match the thread's tone and language; be concise.\n",
+			account.DisplayName, account.Email)+
+			emailShapeRules(s.senderName(ctx, account)),
 		text,
 		400,
 		nil,
@@ -109,10 +131,7 @@ func (s *Service) ComposeInstructed(ctx context.Context, accountID string, reply
 	if err != nil {
 		return "", err
 	}
-	firstName := account.DisplayName
-	if fields := strings.Fields(firstName); len(fields) > 0 {
-		firstName = fields[0]
-	}
+	sender := s.senderName(ctx, account)
 
 	threadContext := ""
 	if replyToMessageID != 0 {
@@ -130,12 +149,11 @@ func (s *Service) ComposeInstructed(ctx context.Context, accountID string, reply
 			"details beyond the instructions.\n"+
 			"- The email's length mirrors the instructions: a one-line instruction "+
 			"means a one-or-two-sentence email.\n"+
-			"- The only additions allowed are a natural greeting and a brief "+
-			"sign-off ending with \"%s\".\n"+
 			"- Plain text only: no subject line, no markdown, no commentary.\n"+
 			"- When a thread is provided, use it only for context (names, tone, "+
-			"what's being referred to) — the instructions still decide the content.",
-		account.DisplayName, account.Email, firstName)
+			"what's being referred to) — the instructions still decide the content.\n"+
+			emailShapeRules(sender),
+		account.DisplayName, account.Email)
 
 	prompt := "Instructions from the sender:\n" + instructions
 	if threadContext != "" {

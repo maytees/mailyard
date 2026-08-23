@@ -21,9 +21,23 @@ export function GetAppSettings(): $CancellablePromise<$models.AppSettings> {
 }
 
 /**
+ * GetUserName returns the person's name ("" until set).
+ */
+export function GetUserName(): $CancellablePromise<string> {
+    return $Call.ByID(1942020304);
+}
+
+/**
  * SetAppSettings persists the sync tunables and restarts the engine so they
  * take effect immediately.
  */
 export function SetAppSettings(settings: $models.AppSettings): $CancellablePromise<void> {
     return $Call.ByID(1738674778, settings);
+}
+
+/**
+ * SetUserName stores the person's name for sign-offs and greetings.
+ */
+export function SetUserName(name: string): $CancellablePromise<void> {
+    return $Call.ByID(2462812660, name);
 }

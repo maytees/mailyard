@@ -70,6 +70,10 @@ func (s *Store) VacuumInto(ctx context.Context, path string) error {
 	return err
 }
 
+// SettingUserName holds the person's name (email sign-offs, onboarding) —
+// distinct from per-mailbox display names like "Personal".
+const SettingUserName = "user_name"
+
 // SettingGet returns the stored value for key, or fallback when unset.
 func (s *Store) SettingGet(ctx context.Context, key, fallback string) (string, error) {
 	var value string

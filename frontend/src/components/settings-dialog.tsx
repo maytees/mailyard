@@ -53,6 +53,7 @@ export function SettingsDialog() {
 					<DialogTitle>Settings</DialogTitle>
 				</DialogHeader>
 				<div className="flex max-h-[65vh] flex-col gap-7 overflow-y-auto pr-1">
+					<GeneralSection />
 					<MailboxesSection />
 					<AISection />
 					<SyncSection />
@@ -61,6 +62,51 @@ export function SettingsDialog() {
 				</div>
 			</DialogContent>
 		</Dialog>
+	)
+}
+
+// ---- general ---------------------------------------------------------------
+
+function GeneralSection() {
+	const [name, setName] = React.useState("")
+	const [busy, setBusy] = React.useState(false)
+
+	React.useEffect(() => {
+		SettingsService.GetUserName()
+			.then((existing) => setName(existing))
+			.catch(() => {})
+	}, [])
+
+	const save = async () => {
+		setBusy(true)
+		try {
+			await SettingsService.SetUserName(name)
+			toast.success("Name saved")
+		} catch (raw: unknown) {
+			toast.error(errorText(raw))
+		} finally {
+			setBusy(false)
+		}
+	}
+
+	return (
+		<Section title="You">
+			<label className="flex flex-col gap-1.5">
+				<span className="text-xs text-muted-foreground">
+					Your name — used to sign emails the AI writes
+				</span>
+				<div className="flex flex-row gap-2">
+					<Input
+						value={name}
+						onChange={(e) => setName(e.target.value)}
+						placeholder="Maytham Ajam"
+					/>
+					<Button size="sm" disabled={busy || !name.trim()} onClick={() => void save()}>
+						Save
+					</Button>
+				</div>
+			</label>
+		</Section>
 	)
 }
 

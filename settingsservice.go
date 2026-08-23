@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
+
+	"mailyard/internal/store"
 )
 
 // SettingsService backs the settings dialog's Sync section. (AI settings go
@@ -17,6 +20,24 @@ type SettingsService struct {
 type AppSettings struct {
 	PollMinutes  int `json:"pollMinutes"`
 	BackfillDays int `json:"backfillDays"`
+}
+
+// GetUserName returns the person's name ("" until set).
+func (s *SettingsService) GetUserName(ctx context.Context) (string, error) {
+	st := s.boot.storeHandle()
+	if st == nil {
+		return "", fmt.Errorf("database is not available")
+	}
+	return st.SettingGet(ctx, store.SettingUserName, "")
+}
+
+// SetUserName stores the person's name for sign-offs and greetings.
+func (s *SettingsService) SetUserName(ctx context.Context, name string) error {
+	st := s.boot.storeHandle()
+	if st == nil {
+		return fmt.Errorf("database is not available")
+	}
+	return st.SettingSet(ctx, store.SettingUserName, strings.TrimSpace(name))
 }
 
 func (s *SettingsService) GetAppSettings(ctx context.Context) (AppSettings, error) {
