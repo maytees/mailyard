@@ -8,7 +8,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -118,23 +120,109 @@ func (s *Service) model(ctx context.Context) (provider.LanguageModel, string, er
 	if err != nil {
 		return nil, "", err
 	}
+	model, err := s.buildModel(config.Provider, config.Model)
+	return model, config.Model, err
+}
+
+func (s *Service) buildModel(providerName, modelName string) (provider.LanguageModel, error) {
 	key, keyErr := s.Vault.Get(secrets.AIKeyName)
-	if keyErr != nil && config.Provider != "ollama" {
-		return nil, "", fmt.Errorf("no AI API key configured — add one in Settings (⌘ ,)")
+	if keyErr != nil && providerName != "ollama" {
+		return nil, fmt.Errorf("no AI API key configured — add one in Settings (⌘ ,)")
 	}
 
-	switch config.Provider {
+	switch providerName {
 	case "anthropic":
-		return anthropic.Chat(config.Model, anthropic.WithAPIKey(key)), config.Model, nil
+		return anthropic.Chat(modelName, anthropic.WithAPIKey(key)), nil
 	case "openai":
-		return openai.Chat(config.Model, openai.WithAPIKey(key)), config.Model, nil
+		return openai.Chat(modelName, openai.WithAPIKey(key)), nil
 	case "google":
-		return google.Chat(config.Model, google.WithAPIKey(key)), config.Model, nil
+		return google.Chat(modelName, google.WithAPIKey(key)), nil
 	case "ollama":
-		return ollama.Chat(config.Model), config.Model, nil
+		return ollama.Chat(modelName), nil
 	default:
-		return nil, "", fmt.Errorf("unknown AI provider %q", config.Provider)
+		return nil, fmt.Errorf("unknown AI provider %q", providerName)
 	}
+}
+
+// ---- per-feature model rules (one model tied to one action) ----------------
+
+// ModelRule routes one AI feature to a specific model ("digests run on
+// local qwen"). Features without a rule use the main configured model.
+type ModelRule struct {
+	Feature  string `json:"feature"` // a PromptDefs id
+	Title    string `json:"title"`
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+}
+
+const modelRulePrefix = "ai_model_rule_"
+
+var providerNames = []string{"anthropic", "openai", "google", "ollama"}
+
+// ListModelRules returns the features that have a model override.
+func (s *Service) ListModelRules(ctx context.Context) ([]ModelRule, error) {
+	rules := []ModelRule{}
+	for _, def := range PromptDefs {
+		raw, err := s.Store.SettingGet(ctx, modelRulePrefix+def.ID, "")
+		if err != nil || raw == "" {
+			continue
+		}
+		var rule ModelRule
+		if json.Unmarshal([]byte(raw), &rule) != nil {
+			continue
+		}
+		rule.Feature, rule.Title = def.ID, def.Title
+		rules = append(rules, rule)
+	}
+	return rules, nil
+}
+
+// SetModelRule ties a feature to a model; empty provider clears the rule.
+func (s *Service) SetModelRule(ctx context.Context, feature, providerName, modelName string) error {
+	valid := false
+	for _, def := range PromptDefs {
+		if def.ID == feature {
+			valid = true
+			break
+		}
+	}
+	if !valid {
+		return fmt.Errorf("unknown AI feature %q", feature)
+	}
+	if providerName == "" {
+		return s.Store.SettingSet(ctx, modelRulePrefix+feature, "")
+	}
+	if !slices.Contains(providerNames, providerName) {
+		return fmt.Errorf("unknown AI provider %q", providerName)
+	}
+	if strings.TrimSpace(modelName) == "" {
+		return fmt.Errorf("model name is empty")
+	}
+	raw, err := json.Marshal(ModelRule{Provider: providerName, Model: modelName})
+	if err != nil {
+		return err
+	}
+	return s.Store.SettingSet(ctx, modelRulePrefix+feature, string(raw))
+}
+
+// modelFor resolves the model for one feature: its rule if set, else the
+// main configured model. The returned provider name drives provider-gated
+// options (ollama's think knob), so it must describe the resolved model,
+// not the global config.
+func (s *Service) modelFor(ctx context.Context, feature string) (provider.LanguageModel, string, string, error) {
+	if raw, err := s.Store.SettingGet(ctx, modelRulePrefix+feature, ""); err == nil && raw != "" {
+		var rule ModelRule
+		if json.Unmarshal([]byte(raw), &rule) == nil && rule.Provider != "" && rule.Model != "" {
+			model, err := s.buildModel(rule.Provider, rule.Model)
+			return model, rule.Provider, rule.Model, err
+		}
+	}
+	config, err := s.Config(ctx)
+	if err != nil {
+		return nil, "", "", err
+	}
+	model, err := s.buildModel(config.Provider, config.Model)
+	return model, config.Provider, config.Model, err
 }
 
 func (s *Service) emit(chunk StreamChunk) {
@@ -154,11 +242,11 @@ func newRequestID() string {
 // streamRequest runs one streaming generation in the background, emitting
 // chunks on "ai:stream". onDone (optional) receives the accumulated text.
 // maxOutputTokens is a hard runaway stop — local models especially ignore
-// length instructions in prompts.
-func (s *Service) streamRequest(system, prompt string, maxOutputTokens int, onDone func(full string)) (string, error) {
+// length instructions in prompts. feature selects the model rule, if any.
+func (s *Service) streamRequest(feature, system, prompt string, maxOutputTokens int, onDone func(full string)) (string, error) {
 	// Validate configuration up front so the caller gets a friendly error
 	// instead of a stream that instantly fails.
-	model, _, err := s.model(context.Background())
+	model, _, _, err := s.modelFor(context.Background(), feature)
 	if err != nil {
 		return "", err
 	}

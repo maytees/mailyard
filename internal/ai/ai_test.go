@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"mailyard/internal/secrets"
 	"mailyard/internal/store"
 )
 
@@ -281,6 +282,57 @@ func TestPromptOverrides(t *testing.T) {
 	// Unknown ids are rejected.
 	if err := service.SetPrompt(ctx, "nope", "x"); err == nil {
 		t.Fatal("unknown prompt accepted")
+	}
+}
+
+func TestModelRules(t *testing.T) {
+	service, _ := testService(t)
+	ctx := context.Background()
+	// The default provider is cloud — building its model needs a key.
+	_ = service.Vault.Set(secrets.AIKeyName, "test-key")
+
+	// No rule → the main configured model.
+	_, providerName, modelName, err := service.modelFor(ctx, "list-digest")
+	if err != nil {
+		t.Fatalf("fallback: %v", err)
+	}
+	if providerName != DefaultProvider || modelName != DefaultModel {
+		t.Fatalf("fallback wrong: %s/%s", providerName, modelName)
+	}
+
+	// Rule set → digests route to local qwen, other features untouched.
+	if err := service.SetModelRule(ctx, "list-digest", "ollama", "qwen3:8b"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	_, providerName, modelName, err = service.modelFor(ctx, "list-digest")
+	if err != nil || providerName != "ollama" || modelName != "qwen3:8b" {
+		t.Fatalf("rule not applied: %s/%s err=%v", providerName, modelName, err)
+	}
+	_, providerName, _, _ = service.modelFor(ctx, "summarize")
+	if providerName != DefaultProvider {
+		t.Fatalf("rule leaked to other feature: %s", providerName)
+	}
+	rules, err := service.ListModelRules(ctx)
+	if err != nil || len(rules) != 1 || rules[0].Feature != "list-digest" ||
+		rules[0].Title == "" {
+		t.Fatalf("list: %+v err=%v", rules, err)
+	}
+
+	// Clearing restores the default; junk is rejected.
+	if err := service.SetModelRule(ctx, "list-digest", "", ""); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	if rules, _ := service.ListModelRules(ctx); len(rules) != 0 {
+		t.Fatalf("rule survived clear: %+v", rules)
+	}
+	if err := service.SetModelRule(ctx, "nope", "ollama", "x"); err == nil {
+		t.Fatal("unknown feature accepted")
+	}
+	if err := service.SetModelRule(ctx, "triage", "aws", "x"); err == nil {
+		t.Fatal("unknown provider accepted")
+	}
+	if err := service.SetModelRule(ctx, "triage", "ollama", " "); err == nil {
+		t.Fatal("blank model accepted")
 	}
 }
 

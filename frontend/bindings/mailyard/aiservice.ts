@@ -46,6 +46,13 @@ export function ListActionItems(accountID: string, threadID: string): $Cancellab
 }
 
 /**
+ * ListModelRules returns the per-feature model overrides.
+ */
+export function ListModelRules(): $CancellablePromise<ai$0.ModelRule[] | null> {
+    return $Call.ByID(2259369971);
+}
+
+/**
  * ListPrompts returns every AI instruction with its current override.
  */
 export function ListPrompts(): $CancellablePromise<ai$0.PromptInfo[] | null> {
@@ -73,6 +80,13 @@ export function SetActionItemDone(id: number, done: boolean): $CancellablePromis
 
 export function SetConfig(provider: string, model: string, listSummaries: boolean, apiKey: string): $CancellablePromise<void> {
     return $Call.ByID(833121423, provider, model, listSummaries, apiKey);
+}
+
+/**
+ * SetModelRule ties one AI feature to one model; empty provider clears it.
+ */
+export function SetModelRule(feature: string, provider: string, model: string): $CancellablePromise<void> {
+    return $Call.ByID(3195257620, feature, provider, model);
 }
 
 /**

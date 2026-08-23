@@ -155,7 +155,10 @@ Pending (waiting on per-feature passes):
 - Todo/calendar surface over the action_items table (global list, dates).
 - Sanitization pass: zero-width/bidi/control chars, HTML comments,
   CSS-hidden text.
-- Model tiering (small model for triage/digests) and prompt-version logging.
+- Model tiering: DONE as per-feature model rules (settings KV
+  ai_model_rule_<feature>, one model tied to one action, modelFor in
+  ai.go; the resolved provider drives the ollama think gate).
+- Prompt-version logging.
 - Evals against a real-mail test set — triage first (runs on every
   sync; ~50 own-inbox emails with expected labels and a diff script
   turns definition tuning mechanical).

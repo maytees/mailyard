@@ -4,6 +4,7 @@
 export type {
     ComposeRequest,
     Config,
+    ModelRule,
     PromptInfo,
     StreamChunk,
     TriageResult

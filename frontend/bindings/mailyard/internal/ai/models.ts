@@ -33,6 +33,20 @@ export interface Config {
 }
 
 /**
+ * ModelRule routes one AI feature to a specific model ("digests run on
+ * local qwen"). Features without a rule use the main configured model.
+ */
+export interface ModelRule {
+    /**
+     * a PromptDefs id
+     */
+    "feature": string;
+    "title": string;
+    "provider": string;
+    "model": string;
+}
+
+/**
  * PromptInfo is PromptDef plus the user's current override ("" = default).
  */
 export interface PromptInfo {

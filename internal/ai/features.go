@@ -61,11 +61,7 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 	if err != nil {
 		return "", err
 	}
-	config, err := s.Config(ctx)
-	if err != nil {
-		return "", err
-	}
-	model, modelName, err := s.model(ctx)
+	model, providerName, modelName, err := s.modelFor(ctx, "summarize")
 	if err != nil {
 		return "", err
 	}
@@ -80,7 +76,7 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 		goai.WithPrompt(prompt),
 		goai.WithMaxOutputTokens(400),
 	}
-	if config.Provider == "ollama" {
+	if providerName == "ollama" {
 		// Native-Ollama-only knob: skip qwen-style thinking for short
 		// summaries. Other providers reject unknown parameters outright
 		// ("Unknown parameter: 'think'").
@@ -139,7 +135,7 @@ func (s *Service) DraftReply(ctx context.Context, accountID, threadID string) (s
 	}
 	prompt := "<owner>" + account.Email + "</owner>\n" + threadXML +
 		"\n\nDraft the reply."
-	return s.streamRequest(
+	return s.streamRequest("draft-reply",
 		s.promptText(ctx, "draft-reply", map[string]string{
 			"mailbox_name":  account.DisplayName,
 			"mailbox_email": account.Email,
@@ -197,7 +193,7 @@ func (s *Service) ComposeInstructed(ctx context.Context, req ComposeRequest) (st
 	parts = append(parts, "<input>\n"+req.Instructions+"\n</input>")
 	prompt := strings.Join(parts, "\n\n") + "\n\nWrite the email."
 
-	return s.streamRequest(system, prompt, 600, nil)
+	return s.streamRequest("compose", system, prompt, 600, nil)
 }
 
 // Rewrite streams the draft re-registered in the requested tone. The tone
@@ -205,7 +201,7 @@ func (s *Service) ComposeInstructed(ctx context.Context, req ComposeRequest) (st
 // prompt.
 func (s *Service) Rewrite(ctx context.Context, text, tone string) (string, error) {
 	prompt := "<draft>\n" + text + "\n</draft>\n\nRewrite this draft to be " + tone + "."
-	return s.streamRequest(
+	return s.streamRequest("rewrite",
 		s.promptText(ctx, "rewrite", nil),
 		prompt,
 		600,
@@ -218,7 +214,7 @@ func (s *Service) Rewrite(ctx context.Context, text, tone string) (string, error
 // every language.
 func (s *Service) Translate(ctx context.Context, text, language string) (string, error) {
 	prompt := "<email>\n" + text + "\n</email>\n\nTranslate this email into " + language + "."
-	return s.streamRequest(
+	return s.streamRequest("translate",
 		s.promptText(ctx, "translate", nil),
 		prompt,
 		1200,
@@ -272,11 +268,7 @@ func (s *Service) ActionItems(ctx context.Context, accountID, threadID string) (
 	if err != nil {
 		return nil, err
 	}
-	config, err := s.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	model, _, err := s.model(ctx)
+	model, providerName, _, err := s.modelFor(ctx, "action-items")
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +280,7 @@ func (s *Service) ActionItems(ctx context.Context, accountID, threadID string) (
 		goai.WithPrompt(prompt),
 		goai.WithMaxOutputTokens(600),
 	}
-	if config.Provider == "ollama" {
+	if providerName == "ollama" {
 		options = append(options, goai.WithProviderOptions(map[string]any{"think": false}))
 	}
 	result, err := generateDeterministic(ctx, model, options...)
@@ -405,11 +397,7 @@ func (s *Service) TriageInbox(ctx context.Context, accountID string) ([]TriageRe
 	blocks, requested := s.taggedEmails(ctx, messages, 600)
 	prompt := blocks + "\nTriage these emails."
 
-	config, err := s.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	model, _, err := s.model(ctx)
+	model, providerName, _, err := s.modelFor(ctx, "triage")
 	if err != nil {
 		return nil, err
 	}
@@ -418,7 +406,7 @@ func (s *Service) TriageInbox(ctx context.Context, accountID string) ([]TriageRe
 		goai.WithPrompt(prompt),
 		goai.WithMaxOutputTokens(2000),
 	}
-	if config.Provider == "ollama" {
+	if providerName == "ollama" {
 		options = append(options, goai.WithProviderOptions(map[string]any{"think": false}))
 	}
 	result, err := generateDeterministic(ctx, model, options...)
@@ -514,11 +502,7 @@ func (s *Service) LabelInbox(ctx context.Context, limit int) (int, error) {
 	})
 	blocks, requested := s.taggedEmails(ctx, messages, 600)
 
-	config, err := s.Config(ctx)
-	if err != nil {
-		return 0, err
-	}
-	model, _, err := s.model(ctx)
+	model, providerName, _, err := s.modelFor(ctx, "label")
 	if err != nil {
 		return 0, err
 	}
@@ -527,7 +511,7 @@ func (s *Service) LabelInbox(ctx context.Context, limit int) (int, error) {
 		goai.WithPrompt(blocks + "\nLabel these emails."),
 		goai.WithMaxOutputTokens(2000),
 	}
-	if config.Provider == "ollama" {
+	if providerName == "ollama" {
 		options = append(options, goai.WithProviderOptions(map[string]any{"think": false}))
 	}
 	result, err := generateDeterministic(ctx, model, options...)
@@ -612,11 +596,7 @@ func (s *Service) GenerateListSummaries(ctx context.Context, limit int) (int, er
 	blocks, requested := s.taggedEmails(ctx, messages, 1200)
 	prompt := blocks + "\nWrite the digests."
 
-	config, err := s.Config(ctx)
-	if err != nil {
-		return 0, err
-	}
-	model, _, err := s.model(ctx)
+	model, providerName, _, err := s.modelFor(ctx, "list-digest")
 	if err != nil {
 		return 0, err
 	}
@@ -625,7 +605,7 @@ func (s *Service) GenerateListSummaries(ctx context.Context, limit int) (int, er
 		goai.WithPrompt(prompt),
 		goai.WithMaxOutputTokens(2000),
 	}
-	if config.Provider == "ollama" {
+	if providerName == "ollama" {
 		options = append(options, goai.WithProviderOptions(map[string]any{"think": false}))
 	}
 	result, err := generateDeterministic(ctx, model, options...)

@@ -123,6 +123,135 @@ function GeneralSection() {
 	)
 }
 
+// ---- model rules -----------------------------------------------------------
+
+type ModelRule = {
+	feature: string
+	title: string
+	provider: string
+	model: string
+}
+
+/**
+ * One model tied to one action. A rule routes that feature to a specific
+ * model (e.g. digests on local qwen); everything without a rule uses the
+ * main model above.
+ */
+function ModelRulesBlock() {
+	const [rules, setRules] = React.useState<ModelRule[]>([])
+	const [actions, setActions] = React.useState<PromptInfo[]>([])
+	const [feature, setFeature] = React.useState("")
+	const [provider, setProvider] = React.useState("ollama")
+	const [model, setModel] = React.useState(PROVIDER_DEFAULT_MODEL.ollama)
+	const [busy, setBusy] = React.useState(false)
+
+	const load = React.useCallback(() => {
+		AIService.ListModelRules().then((r) => setRules(r ?? [])).catch(() => {})
+		AIService.ListPrompts().then((p) => setActions(p ?? [])).catch(() => {})
+	}, [])
+	React.useEffect(load, [load])
+
+	// Actions without a rule yet — one rule per action.
+	const available = actions.filter(
+		(action) => !rules.some((rule) => rule.feature === action.id)
+	)
+	const selected = available.some((a) => a.id === feature)
+		? feature
+		: (available[0]?.id ?? "")
+
+	const add = async () => {
+		if (!selected) return
+		setBusy(true)
+		try {
+			await AIService.SetModelRule(selected, provider, model)
+			load()
+		} catch (raw: unknown) {
+			toast.error(errorText(raw))
+		} finally {
+			setBusy(false)
+		}
+	}
+
+	const remove = async (rule: ModelRule) => {
+		try {
+			await AIService.SetModelRule(rule.feature, "", "")
+			load()
+		} catch (raw: unknown) {
+			toast.error(errorText(raw))
+		}
+	}
+
+	return (
+		<div className="flex flex-col gap-2">
+			<span className="text-xs text-muted-foreground">
+				Model rules — route an action to a different model (everything else
+				uses the main model above)
+			</span>
+			{rules.length > 0 && (
+				<ul className="flex flex-col gap-1">
+					{rules.map((rule) => (
+						<li
+							key={rule.feature}
+							className="flex flex-row items-center gap-2 rounded-xl border px-3 py-1.5 text-sm"
+						>
+							<span className="font-medium">{rule.title}</span>
+							<span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+								{rule.provider} · {rule.model}
+							</span>
+							<Button variant="ghost" size="xs" onClick={() => void remove(rule)}>
+								Remove
+							</Button>
+						</li>
+					))}
+				</ul>
+			)}
+			{available.length > 0 && (
+				<div className="flex flex-row items-center gap-2">
+					<select
+						value={selected}
+						onChange={(e) => setFeature(e.target.value)}
+						className="h-8 min-w-0 flex-1 cursor-pointer rounded-3xl border border-transparent bg-input/50 px-2.5 text-sm outline-none"
+					>
+						{available.map((action) => (
+							<option key={action.id} value={action.id}>
+								{action.title}
+							</option>
+						))}
+					</select>
+					<select
+						value={provider}
+						onChange={(e) => {
+							const next = e.target.value
+							setProvider(next)
+							setModel(PROVIDER_DEFAULT_MODEL[next] ?? "")
+						}}
+						className="h-8 cursor-pointer rounded-3xl border border-transparent bg-input/50 px-2.5 text-sm outline-none"
+					>
+						{PROVIDERS.map((name) => (
+							<option key={name} value={name}>
+								{name === "ollama" ? "ollama (local)" : name}
+							</option>
+						))}
+					</select>
+					<Input
+						value={model}
+						onChange={(e) => setModel(e.target.value)}
+						className="h-8 w-32"
+						placeholder="model"
+					/>
+					<Button
+						size="sm"
+						disabled={busy || !selected || !model.trim()}
+						onClick={() => void add()}
+					>
+						Add rule
+					</Button>
+				</div>
+			)}
+		</div>
+	)
+}
+
 // ---- labels ----------------------------------------------------------------
 
 function LabelGlyphInline({ icon, className }: { icon: string; className?: string }) {
@@ -557,6 +686,7 @@ function AISection() {
 				/>
 				AI digests in the mail list (replaces snippets, uses tokens)
 			</label>
+			<ModelRulesBlock />
 			<div className="flex flex-row gap-2">
 				<Button size="sm" disabled={busy} onClick={() => void save()}>
 					{busy ? "Saving…" : "Save AI settings"}

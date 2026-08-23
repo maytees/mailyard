@@ -57,6 +57,24 @@ func (a *AIService) SetConfig(ctx context.Context, provider, model string, listS
 	return nil
 }
 
+// ListModelRules returns the per-feature model overrides.
+func (a *AIService) ListModelRules(ctx context.Context) ([]ai.ModelRule, error) {
+	service, err := a.svc()
+	if err != nil {
+		return nil, err
+	}
+	return service.ListModelRules(ctx)
+}
+
+// SetModelRule ties one AI feature to one model; empty provider clears it.
+func (a *AIService) SetModelRule(ctx context.Context, feature, provider, model string) error {
+	service, err := a.svc()
+	if err != nil {
+		return err
+	}
+	return service.SetModelRule(ctx, feature, provider, model)
+}
+
 // ListPrompts returns every AI instruction with its current override.
 func (a *AIService) ListPrompts(ctx context.Context) ([]ai.PromptInfo, error) {
 	service, err := a.svc()
