@@ -16,7 +16,8 @@ const messageColumns = `
 	m.id, m.account_id, m.folder_id, m.uid, m.message_id, m.refs, m.thread_id,
 	m.subject, m.from_name, m.from_email, m.to_json, m.cc_json, m.date,
 	m.snippet, m.is_unread, m.is_starred, m.is_answered, m.has_attachments,
-	m.size, m.snoozed_until, m.list_unsubscribe`
+	m.size, m.snoozed_until, m.list_unsubscribe,
+	COALESCE((SELECT ml.label_id FROM message_labels ml WHERE ml.message_id = m.id), 0)`
 
 func scanMessage(row interface{ Scan(...any) error }) (Message, error) {
 	var m Message
@@ -25,7 +26,7 @@ func scanMessage(row interface{ Scan(...any) error }) (Message, error) {
 		&m.Refs, &m.ThreadID, &m.Subject, &m.From.Name, &m.From.Email,
 		&toJSON, &ccJSON, &m.Date, &m.Snippet, &m.Unread, &m.Starred,
 		&m.Answered, &m.HasAttachments, &m.Size, &m.SnoozedUntil,
-		&m.ListUnsubscribe)
+		&m.ListUnsubscribe, &m.LabelID)
 	if err != nil {
 		return Message{}, err
 	}
@@ -219,6 +220,11 @@ func (s *Store) ListMessages(ctx context.Context, f ListFilter) ([]Message, erro
 	if f.AccountID != "" {
 		query += ` AND m.account_id = ?`
 		args = append(args, f.AccountID)
+	}
+	if f.LabelID != 0 {
+		query += ` AND EXISTS (SELECT 1 FROM message_labels ml
+			WHERE ml.message_id = m.id AND ml.label_id = ?)`
+		args = append(args, f.LabelID)
 	}
 	query += ` ORDER BY m.date DESC, m.id DESC LIMIT ? OFFSET ?`
 	args = append(args, f.Limit, f.Offset)

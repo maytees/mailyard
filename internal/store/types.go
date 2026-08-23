@@ -66,6 +66,8 @@ type Message struct {
 	SnoozedUntil   int64     `json:"snoozedUntil"`
 	// Raw List-Unsubscribe header, for the unsubscribe-suggestions feature.
 	ListUnsubscribe string `json:"-"`
+	// Assigned label (0 = not yet classified). Read-only on writes.
+	LabelID int64 `json:"labelId"`
 }
 
 type MessageBody struct {
@@ -89,6 +91,8 @@ type Attachment struct {
 type ListFilter struct {
 	AccountID  string `json:"accountId"`
 	FolderRole string `json:"folderRole"`
-	Limit      int    `json:"limit"`
-	Offset     int    `json:"offset"`
+	// LabelID narrows the list to one label (0 = all).
+	LabelID int64 `json:"labelId"`
+	Limit   int   `json:"limit"`
+	Offset  int   `json:"offset"`
 }
