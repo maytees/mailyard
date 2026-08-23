@@ -411,11 +411,19 @@ function SyncSection() {
 
 // ---- appearance ------------------------------------------------------------
 
+const COMPOSE_STYLES = [
+	{ key: "sheet", label: "Side panel" },
+	{ key: "modal", label: "Centered" },
+	{ key: "docked", label: "Docked" },
+] as const
+
 function AppearanceSection() {
 	const theme = useThemeStore((s) => s.theme)
 	const setTheme = useThemeStore((s) => s.setTheme)
 	const compact = useSettingsStore((s) => s.compact)
 	const toggleCompact = useSettingsStore((s) => s.toggleCompact)
+	const composeStyle = useSettingsStore((s) => s.composeStyle)
+	const setComposeStyle = useSettingsStore((s) => s.setComposeStyle)
 
 	return (
 		<Section title="Appearance">
@@ -440,6 +448,20 @@ function AppearanceSection() {
 				>
 					{compact ? "Cozy rows" : "Compact rows"}
 				</Button>
+			</div>
+			<div className="flex flex-row items-center gap-2">
+				<span className="text-xs text-muted-foreground">Compose as</span>
+				{COMPOSE_STYLES.map((option) => (
+					<Button
+						key={option.key}
+						variant={composeStyle === option.key ? "default" : "outline"}
+						size="xs"
+						className="rounded-full"
+						onClick={() => setComposeStyle(option.key)}
+					>
+						{option.label}
+					</Button>
+				))}
 			</div>
 		</Section>
 	)
