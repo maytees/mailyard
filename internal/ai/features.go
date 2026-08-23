@@ -38,9 +38,28 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 	if err != nil {
 		return "", err
 	}
+	config, err := s.Config(ctx)
+	if err != nil {
+		return "", err
+	}
 	model, modelName, err := s.model(ctx)
 	if err != nil {
 		return "", err
+	}
+
+	options := []goai.Option{
+		goai.WithSystem("Summarize the email thread for its owner: who wants " +
+			"what, what was decided, what happens next. 1-3 plain sentences, " +
+			"60 words maximum. Plain text only — never markdown, headings, " +
+			"bullets, links, or preamble."),
+		goai.WithPrompt(text),
+		goai.WithMaxOutputTokens(400),
+	}
+	if config.Provider == "ollama" {
+		// Native-Ollama-only knob: skip qwen-style thinking for short
+		// summaries. Other providers reject unknown parameters outright
+		// ("Unknown parameter: 'think'").
+		options = append(options, goai.WithProviderOptions(map[string]any{"think": false}))
 	}
 
 	requestID := newRequestID()
@@ -49,16 +68,7 @@ func (s *Service) SummarizeThread(ctx context.Context, accountID, threadID strin
 		// of an eternal caret.
 		background, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		defer cancel()
-		result, err := goai.GenerateObject[summaryOutput](background, model,
-			goai.WithSystem("Summarize the email thread for its owner: who wants "+
-				"what, what was decided, what happens next. 1-3 plain sentences, "+
-				"60 words maximum. Plain text only — never markdown, headings, "+
-				"bullets, links, or preamble."),
-			goai.WithPrompt(text),
-			goai.WithMaxOutputTokens(400),
-			// Ollama: skip qwen-style thinking; it slows short summaries down.
-			goai.WithProviderOptions(map[string]any{"think": false}),
-		)
+		result, err := goai.GenerateObject[summaryOutput](background, model, options...)
 		if err != nil {
 			s.emit(StreamChunk{RequestID: requestID, Seq: 0, Done: true, Error: err.Error()})
 			return
