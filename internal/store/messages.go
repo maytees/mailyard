@@ -9,14 +9,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 )
 
 const messageColumns = `
 	m.id, m.account_id, m.folder_id, m.uid, m.message_id, m.refs, m.thread_id,
 	m.subject, m.from_name, m.from_email, m.to_json, m.cc_json, m.date,
 	m.snippet, m.is_unread, m.is_starred, m.is_answered, m.has_attachments,
-	m.size, m.snoozed_until, m.list_unsubscribe,
+	m.size, m.list_unsubscribe,
 	COALESCE((SELECT ml.label_id FROM message_labels ml WHERE ml.message_id = m.id), 0)`
 
 func scanMessage(row interface{ Scan(...any) error }) (Message, error) {
@@ -25,7 +24,7 @@ func scanMessage(row interface{ Scan(...any) error }) (Message, error) {
 	err := row.Scan(&m.ID, &m.AccountID, &m.FolderID, &m.UID, &m.MessageID,
 		&m.Refs, &m.ThreadID, &m.Subject, &m.From.Name, &m.From.Email,
 		&toJSON, &ccJSON, &m.Date, &m.Snippet, &m.Unread, &m.Starred,
-		&m.Answered, &m.HasAttachments, &m.Size, &m.SnoozedUntil,
+		&m.Answered, &m.HasAttachments, &m.Size,
 		&m.ListUnsubscribe, &m.LabelID)
 	if err != nil {
 		return Message{}, err
@@ -91,13 +90,13 @@ func (s *Store) UpsertMessage(ctx context.Context, m Message) (int64, bool, erro
 			(account_id, folder_id, uid, message_id, refs, thread_id, subject,
 			 from_name, from_email, to_json, cc_json, date, snippet,
 			 is_unread, is_starred, is_answered, has_attachments, size,
-			 snoozed_until, list_unsubscribe)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			 list_unsubscribe)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING id`,
 		m.AccountID, m.FolderID, m.UID, m.MessageID, m.Refs, threadID,
 		m.Subject, m.From.Name, m.From.Email, string(toJSON), string(ccJSON),
 		m.Date, m.Snippet, m.Unread, m.Starred, m.Answered,
-		m.HasAttachments, m.Size, m.SnoozedUntil, m.ListUnsubscribe).Scan(&id); err != nil {
+		m.HasAttachments, m.Size, m.ListUnsubscribe).Scan(&id); err != nil {
 		return 0, false, err
 	}
 
@@ -203,7 +202,7 @@ func (s *Store) GetMessage(ctx context.Context, id int64) (Message, error) {
 }
 
 // ListMessages returns a page of the newest-first message list for the
-// filter. Snoozed messages stay hidden until their wake time passes.
+// filter.
 func (s *Store) ListMessages(ctx context.Context, f ListFilter) ([]Message, error) {
 	if f.Limit <= 0 {
 		f.Limit = 50
@@ -215,8 +214,8 @@ func (s *Store) ListMessages(ctx context.Context, f ListFilter) ([]Message, erro
 
 	query := `SELECT ` + messageColumns + `
 		FROM messages m JOIN folders fo ON fo.id = m.folder_id
-		WHERE ` + roleClause(role) + ` AND m.snoozed_until <= ?`
-	args := []any{role, time.Now().Unix()}
+		WHERE ` + roleClause(role) + ``
+	args := []any{role}
 	if f.AccountID != "" {
 		query += ` AND m.account_id = ?`
 		args = append(args, f.AccountID)
@@ -230,13 +229,6 @@ func (s *Store) ListMessages(ctx context.Context, f ListFilter) ([]Message, erro
 	args = append(args, f.Limit, f.Offset)
 
 	return s.queryMessages(ctx, query, args...)
-}
-
-// SnoozeMessage hides a message from lists until the wake time (0 unsnoozes).
-func (s *Store) SnoozeMessage(ctx context.Context, id int64, until int64) error {
-	_, err := s.db.ExecContext(ctx,
-		`UPDATE messages SET snoozed_until = ? WHERE id = ?`, until, id)
-	return err
 }
 
 // roleClause matches a view's messages: the inbox hides locally archived
@@ -254,15 +246,15 @@ func roleClause(role string) string {
 }
 
 // MessageIDs lists every message id matching the filter, newest first —
-// the bulk-action counterpart of ListMessages (no paging, same snooze rule).
+// the bulk-action counterpart of ListMessages (no paging).
 func (s *Store) MessageIDs(ctx context.Context, f ListFilter) ([]int64, error) {
 	role := f.FolderRole
 	if role == "" {
 		role = RoleInbox
 	}
 	query := `SELECT m.id FROM messages m JOIN folders fo ON fo.id = m.folder_id
-		WHERE ` + roleClause(role) + ` AND m.snoozed_until <= ?`
-	args := []any{role, time.Now().Unix()}
+		WHERE ` + roleClause(role) + ``
+	args := []any{role}
 	if f.AccountID != "" {
 		query += ` AND m.account_id = ?`
 		args = append(args, f.AccountID)
@@ -300,8 +292,8 @@ func (s *Store) ArchiveLocally(ctx context.Context, f ListFilter) (int, error) {
 	}
 	query := `UPDATE messages SET local_archived = 1 WHERE id IN (
 		SELECT m.id FROM messages m JOIN folders fo ON fo.id = m.folder_id
-		WHERE ` + roleClause(role) + ` AND m.snoozed_until <= ?`
-	args := []any{role, time.Now().Unix()}
+		WHERE ` + roleClause(role) + ``
+	args := []any{role}
 	if f.AccountID != "" {
 		query += ` AND m.account_id = ?`
 		args = append(args, f.AccountID)

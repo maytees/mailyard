@@ -138,15 +138,6 @@ func (m *MailService) SetStarred(ctx context.Context, messageID int64, starred b
 	return nil
 }
 
-// Snooze hides a message from lists until the wake time (local-only).
-func (m *MailService) Snooze(ctx context.Context, messageID int64, until int64) error {
-	st, err := m.st()
-	if err != nil {
-		return err
-	}
-	return st.SnoozeMessage(ctx, messageID, until)
-}
-
 // MarkAllRead clears unread across the current view, pushing \Seen flags in
 // the background.
 func (m *MailService) MarkAllRead(ctx context.Context, filter store.ListFilter) error {

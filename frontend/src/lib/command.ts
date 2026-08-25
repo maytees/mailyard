@@ -4,7 +4,6 @@ import {
 	archiveAllInView,
 	markActiveUnread,
 	markAllRead,
-	snoozeActive,
 	toggleStarActive,
 	trashActive,
 } from "@/lib/mail-actions"
@@ -23,7 +22,7 @@ import {
 	continueLastDraft,
 	openCompose,
 } from "@/stores/compose"
-import { labelInbox, setLabelPickerOpen } from "@/stores/labels"
+import { cycleLabel, labelInbox, setLabelPickerOpen } from "@/stores/labels"
 import {
 	getActiveMessage,
 	refreshMailList,
@@ -54,6 +53,8 @@ import {
 	AiEditingIcon,
 	Archive02Icon,
 	ArchiveIcon,
+	ArrowLeft01Icon,
+	ArrowRight01Icon,
 	ArrowDown02Icon,
 	ArrowExpand01Icon,
 	ArrowShrink02Icon,
@@ -76,7 +77,6 @@ import {
 	MailReplyAllIcon,
 	MailReplyIcon,
 	Moon02Icon,
-	NotificationSnoozeIcon,
 	PencilIcon,
 	PrinterIcon,
 	RefreshIcon,
@@ -194,7 +194,6 @@ export const commands: AppCommand[] = [
 	{ id: "archive", label: "Archive email", icon: ArchiveIcon, shortcut: "e", group: "Mail actions", run: archiveActive },
 	{ id: "archive-all", label: "Archive all in this label", icon: Archive02Icon, group: "Mail actions", run: () => void archiveAllInView() },
 	{ id: "delete", label: "Delete email", icon: Delete02Icon, shortcut: "shift+3", group: "Mail actions", run: trashActive },
-	{ id: "snooze", label: "Snooze until tomorrow", icon: NotificationSnoozeIcon, shortcut: "h", group: "Mail actions", run: snoozeActive },
 	{ id: "mark-read", label: "Mark all as read", icon: TickDoubleIcon, shortcut: "shift+i", group: "Mail actions", run: markAllRead },
 	{ id: "mark-unread", label: "Mark as unread", icon: InboxUnreadIcon, shortcut: "shift+u", group: "Mail actions", run: markActiveUnread },
 	{ id: "flag", label: "Flag email", icon: Flag02Icon, shortcut: "s", group: "Mail actions", run: toggleStarActive },
@@ -329,6 +328,16 @@ export const commands: AppCommand[] = [
 		group: "AI",
 		hidden: true,
 		run: () => useUIStore.getState().setPaletteOpen(true),
+	},
+
+	// Vim motion over the label pills: h/l with wrapping.
+	{
+		id: "label-prev", label: "Previous label", icon: ArrowLeft01Icon,
+		shortcut: "h", group: "Navigation", run: () => cycleLabel(-1),
+	},
+	{
+		id: "label-next", label: "Next label", icon: ArrowRight01Icon,
+		shortcut: "l", group: "Navigation", run: () => cycleLabel(1),
 	},
 
 	// Keyboard-only: mod+1..9 jumps to the Nth mailbox (the palette already

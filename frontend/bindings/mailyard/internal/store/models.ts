@@ -115,7 +115,6 @@ export interface Message {
     "answered": boolean;
     "hasAttachments": boolean;
     "size": number;
-    "snoozedUntil": number;
 
     /**
      * Assigned label (0 = not yet classified). Read-only on writes.

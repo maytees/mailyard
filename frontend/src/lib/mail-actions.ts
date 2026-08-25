@@ -100,19 +100,6 @@ export function trashActive() {
 	runUndoable(message.id, "Deleted", () => MailService.Trash(message.id))
 }
 
-/** Local snooze until tomorrow 8:00. */
-export function snoozeActive() {
-	const message = activeMessage()
-	if (!message) return
-	const tomorrow = new Date()
-	tomorrow.setDate(tomorrow.getDate() + 1)
-	tomorrow.setHours(8, 0, 0, 0)
-	const until = Math.floor(tomorrow.getTime() / 1000)
-	runUndoable(message.id, "Snoozed until tomorrow", async () => {
-		await MailService.Snooze(message.id, until)
-	})
-}
-
 export function toggleStarActive() {
 	const message = activeMessage()
 	if (!message) return

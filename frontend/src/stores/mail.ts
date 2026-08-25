@@ -202,7 +202,9 @@ export function clearAccountFilter() {
 
 export function setFolderRole(role: string) {
 	if (useMailStore.getState().folderRole === role) return
-	useMailStore.setState({ folderRole: role, activeMessageId: null })
+	// Label pills only exist in the inbox — a filter left active would
+	// invisibly empty every other folder view.
+	useMailStore.setState({ folderRole: role, labelFilter: 0, activeMessageId: null })
 	void refreshMailList()
 }
 

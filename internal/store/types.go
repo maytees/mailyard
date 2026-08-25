@@ -63,7 +63,6 @@ type Message struct {
 	Answered       bool      `json:"answered"`
 	HasAttachments bool      `json:"hasAttachments"`
 	Size           int64     `json:"size"`
-	SnoozedUntil   int64     `json:"snoozedUntil"`
 	// Raw List-Unsubscribe header, for the unsubscribe-suggestions feature.
 	ListUnsubscribe string `json:"-"`
 	// Assigned label (0 = not yet classified). Read-only on writes.

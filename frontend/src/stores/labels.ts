@@ -6,7 +6,7 @@ import { Events } from "@wailsio/runtime"
 
 import * as LabelService from "~/bindings/mailyard/labelservice"
 import type { Label } from "~/bindings/mailyard/internal/store/models"
-import { refreshMailList } from "@/stores/mail"
+import { refreshMailList, useMailStore } from "@/stores/mail"
 
 interface LabelsState {
 	labels: Label[]
@@ -42,6 +42,21 @@ export async function labelInbox() {
 	} catch (raw: unknown) {
 		toast.error(raw instanceof Error ? raw.message : String(raw))
 	}
+}
+
+/**
+ * The h/l vim motion over the pill row: All → each label in order, wrapping
+ * at both ends. Inbox only — that's the only view with pills.
+ */
+export function cycleLabel(delta: number) {
+	const { folderRole, labelFilter } = useMailStore.getState()
+	if (folderRole !== "inbox") return
+	const order = [0, ...useLabelsStore.getState().labels.map((l) => l.id)]
+	const index = Math.max(0, order.indexOf(labelFilter))
+	const next = order[(index + delta + order.length) % order.length]
+	if (next === labelFilter) return
+	useMailStore.setState({ labelFilter: next, activeMessageId: null })
+	void refreshMailList()
 }
 
 /** Manual assignment — wins over the classifier permanently. */
