@@ -215,7 +215,7 @@ func (s *Store) ListMessages(ctx context.Context, f ListFilter) ([]Message, erro
 
 	query := `SELECT ` + messageColumns + `
 		FROM messages m JOIN folders fo ON fo.id = m.folder_id
-		WHERE fo.role = ? AND m.snoozed_until <= ?`
+		WHERE ` + roleClause(role) + ` AND m.snoozed_until <= ?`
 	args := []any{role, time.Now().Unix()}
 	if f.AccountID != "" {
 		query += ` AND m.account_id = ?`
@@ -239,6 +239,20 @@ func (s *Store) SnoozeMessage(ctx context.Context, id int64, until int64) error 
 	return err
 }
 
+// roleClause matches a view's messages: the inbox hides locally archived
+// rows, and the archive shows them alongside true server archives. Callers
+// bind the role name once.
+func roleClause(role string) string {
+	switch role {
+	case RoleInbox:
+		return `fo.role = ? AND m.local_archived = 0`
+	case RoleArchive:
+		return `(fo.role = ? OR m.local_archived = 1)`
+	default:
+		return `fo.role = ?`
+	}
+}
+
 // MessageIDs lists every message id matching the filter, newest first —
 // the bulk-action counterpart of ListMessages (no paging, same snooze rule).
 func (s *Store) MessageIDs(ctx context.Context, f ListFilter) ([]int64, error) {
@@ -247,7 +261,7 @@ func (s *Store) MessageIDs(ctx context.Context, f ListFilter) ([]int64, error) {
 		role = RoleInbox
 	}
 	query := `SELECT m.id FROM messages m JOIN folders fo ON fo.id = m.folder_id
-		WHERE fo.role = ? AND m.snoozed_until <= ?`
+		WHERE ` + roleClause(role) + ` AND m.snoozed_until <= ?`
 	args := []any{role, time.Now().Unix()}
 	if f.AccountID != "" {
 		query += ` AND m.account_id = ?`
@@ -276,6 +290,36 @@ func (s *Store) MessageIDs(ctx context.Context, f ListFilter) ([]int64, error) {
 	return ids, rows.Err()
 }
 
+// ArchiveLocally hides every message matching the filter from the inbox in
+// one UPDATE — the instant declutter sweep. The server copies stay where
+// they are; the rows surface in the Archive view instead.
+func (s *Store) ArchiveLocally(ctx context.Context, f ListFilter) (int, error) {
+	role := f.FolderRole
+	if role == "" {
+		role = RoleInbox
+	}
+	query := `UPDATE messages SET local_archived = 1 WHERE id IN (
+		SELECT m.id FROM messages m JOIN folders fo ON fo.id = m.folder_id
+		WHERE ` + roleClause(role) + ` AND m.snoozed_until <= ?`
+	args := []any{role, time.Now().Unix()}
+	if f.AccountID != "" {
+		query += ` AND m.account_id = ?`
+		args = append(args, f.AccountID)
+	}
+	if f.LabelID != 0 {
+		query += ` AND EXISTS (SELECT 1 FROM message_labels ml
+			WHERE ml.message_id = m.id AND ml.label_id = ?)`
+		args = append(args, f.LabelID)
+	}
+	query += `)`
+	result, err := s.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return 0, err
+	}
+	count, err := result.RowsAffected()
+	return int(count), err
+}
+
 // UnreadIDs lists the unread message ids matching the filter (mark-all-read).
 func (s *Store) UnreadIDs(ctx context.Context, f ListFilter) ([]int64, error) {
 	role := f.FolderRole
@@ -283,7 +327,7 @@ func (s *Store) UnreadIDs(ctx context.Context, f ListFilter) ([]int64, error) {
 		role = RoleInbox
 	}
 	query := `SELECT m.id FROM messages m JOIN folders fo ON fo.id = m.folder_id
-		WHERE fo.role = ? AND m.is_unread = 1`
+		WHERE ` + roleClause(role) + ` AND m.is_unread = 1`
 	args := []any{role}
 	if f.AccountID != "" {
 		query += ` AND m.account_id = ?`
@@ -354,7 +398,7 @@ func (s *Store) UnreadCounts(ctx context.Context) (map[string]int, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT m.account_id, COUNT(*)
 		FROM messages m JOIN folders fo ON fo.id = m.folder_id
-		WHERE fo.role = ? AND m.is_unread = 1
+		WHERE `+roleClause(RoleInbox)+` AND m.is_unread = 1
 		GROUP BY m.account_id`, RoleInbox)
 	if err != nil {
 		return nil, err

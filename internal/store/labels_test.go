@@ -81,6 +81,49 @@ func TestDeleteLabelReassignsToOther(t *testing.T) {
 	}
 }
 
+func TestArchiveLocallySweepsTheLabelView(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	a := testAccount(t, s, "acc1")
+	inbox := testFolder(t, s, a.ID, "INBOX", RoleInbox)
+
+	var ids []int64
+	for uid := uint32(1); uid <= 3; uid++ {
+		id, _, err := s.UpsertMessage(ctx, Message{
+			AccountID: a.ID, FolderID: inbox, UID: uid,
+			MessageID: "<a" + string(rune('0'+uid)) + "@x>",
+			Subject:   "m", From: Address{Email: "x@x"}, Date: int64(uid),
+			Unread: true,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, id)
+	}
+	// Two promotions (unread), one unlabeled.
+	_ = s.SetMessageLabel(ctx, ids[0], 3, "ai")
+	_ = s.SetMessageLabel(ctx, ids[1], 3, "ai")
+
+	count, err := s.ArchiveLocally(ctx, ListFilter{LabelID: 3})
+	if err != nil || count != 2 {
+		t.Fatalf("sweep: count=%d err=%v", count, err)
+	}
+
+	// Gone from the inbox, present in the archive view, unread badge drops.
+	inboxLeft, _ := s.ListMessages(ctx, ListFilter{})
+	if len(inboxLeft) != 1 || inboxLeft[0].ID != ids[2] {
+		t.Fatalf("inbox after sweep: %+v", inboxLeft)
+	}
+	archived, _ := s.ListMessages(ctx, ListFilter{FolderRole: RoleArchive})
+	if len(archived) != 2 {
+		t.Fatalf("archive view: %+v", archived)
+	}
+	unread, _ := s.UnreadCounts(ctx)
+	if unread[a.ID] != 1 {
+		t.Fatalf("unread badge counts archived mail: %v", unread)
+	}
+}
+
 func TestUserLabelBeatsClassifier(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()

@@ -97,28 +97,17 @@ func (m *MailService) Archive(ctx context.Context, messageID int64) error {
 	return engine.MoveMessageToRole(ctx, messageID, store.RoleArchive)
 }
 
-// ArchiveAll archives every message matching the filter (the clear-the-
-// inbox sweep for one label view). Returns how many were archived; an
-// individual move failure stops the sweep and reports the partial count.
+// ArchiveAll hides every message matching the filter from the inbox — a
+// single local UPDATE, instant regardless of count. Deliberately not an
+// IMAP sweep: this is the declutter gesture, and the server copies stay
+// put (other clients still see them; single-message archive remains the
+// real server-side move).
 func (m *MailService) ArchiveAll(ctx context.Context, filter store.ListFilter) (int, error) {
 	st, err := m.st()
 	if err != nil {
 		return 0, err
 	}
-	engine := m.sync.engineHandle()
-	if engine == nil {
-		return 0, fmt.Errorf("mail engine is not running yet")
-	}
-	ids, err := st.MessageIDs(ctx, filter)
-	if err != nil {
-		return 0, err
-	}
-	for count, id := range ids {
-		if err := engine.MoveMessageToRole(ctx, id, store.RoleArchive); err != nil {
-			return count, fmt.Errorf("archived %d of %d, then: %w", count, len(ids), err)
-		}
-	}
-	return len(ids), nil
+	return st.ArchiveLocally(ctx, filter)
 }
 
 // Trash moves a message into the account's trash folder on the server.

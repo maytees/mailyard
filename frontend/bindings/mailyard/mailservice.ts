@@ -23,9 +23,11 @@ export function Archive(messageID: number): $CancellablePromise<void> {
 }
 
 /**
- * ArchiveAll archives every message matching the filter (the clear-the-
- * inbox sweep for one label view). Returns how many were archived; an
- * individual move failure stops the sweep and reports the partial count.
+ * ArchiveAll hides every message matching the filter from the inbox — a
+ * single local UPDATE, instant regardless of count. Deliberately not an
+ * IMAP sweep: this is the declutter gesture, and the server copies stay
+ * put (other clients still see them; single-message archive remains the
+ * real server-side move).
  */
 export function ArchiveAll(filter: store$0.ListFilter): $CancellablePromise<number> {
     return $Call.ByID(133144979, filter);
