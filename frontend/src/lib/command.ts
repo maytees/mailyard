@@ -1,6 +1,7 @@
 // File is mostly written by claude
 import {
 	archiveActive,
+	archiveAllInView,
 	markActiveUnread,
 	markAllRead,
 	snoozeActive,
@@ -191,6 +192,7 @@ export const commands: AppCommand[] = [
 		},
 	},
 	{ id: "archive", label: "Archive email", icon: ArchiveIcon, shortcut: "e", group: "Mail actions", run: archiveActive },
+	{ id: "archive-all", label: "Archive all in this label", icon: Archive02Icon, group: "Mail actions", run: () => void archiveAllInView() },
 	{ id: "delete", label: "Delete email", icon: Delete02Icon, shortcut: "shift+3", group: "Mail actions", run: trashActive },
 	{ id: "snooze", label: "Snooze until tomorrow", icon: NotificationSnoozeIcon, shortcut: "h", group: "Mail actions", run: snoozeActive },
 	{ id: "mark-read", label: "Mark all as read", icon: TickDoubleIcon, shortcut: "shift+i", group: "Mail actions", run: markAllRead },

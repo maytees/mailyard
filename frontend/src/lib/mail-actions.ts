@@ -62,6 +62,38 @@ export function archiveActive() {
 	runUndoable(message.id, "Archived", () => MailService.Archive(message.id))
 }
 
+/**
+ * Archives everything in the current label view. Deliberately refuses the
+ * "All" view — a whole-inbox sweep is one misclick from disaster; per-label
+ * sweeps are the intended clear-the-clutter gesture.
+ */
+export async function archiveAllInView() {
+	const { accountFilter, folderRole, labelFilter } = useMailStore.getState()
+	if (folderRole !== "inbox") {
+		toast("Archive all works in the inbox")
+		return
+	}
+	if (labelFilter === 0) {
+		toast("Pick a label first — archiving all of All is a lot")
+		return
+	}
+	try {
+		const count = await MailService.ArchiveAll({
+			accountId: accountFilter,
+			folderRole,
+			labelId: labelFilter,
+			limit: 0,
+			offset: 0,
+		})
+		await refreshMailList()
+		refreshUnreadCounts()
+		toast(count > 0 ? `Archived ${count} emails` : "Nothing to archive")
+	} catch (raw: unknown) {
+		toast.error(raw instanceof Error ? raw.message : String(raw))
+		void refreshMailList()
+	}
+}
+
 export function trashActive() {
 	const message = activeMessage()
 	if (!message) return

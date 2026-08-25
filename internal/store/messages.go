@@ -239,6 +239,43 @@ func (s *Store) SnoozeMessage(ctx context.Context, id int64, until int64) error 
 	return err
 }
 
+// MessageIDs lists every message id matching the filter, newest first —
+// the bulk-action counterpart of ListMessages (no paging, same snooze rule).
+func (s *Store) MessageIDs(ctx context.Context, f ListFilter) ([]int64, error) {
+	role := f.FolderRole
+	if role == "" {
+		role = RoleInbox
+	}
+	query := `SELECT m.id FROM messages m JOIN folders fo ON fo.id = m.folder_id
+		WHERE fo.role = ? AND m.snoozed_until <= ?`
+	args := []any{role, time.Now().Unix()}
+	if f.AccountID != "" {
+		query += ` AND m.account_id = ?`
+		args = append(args, f.AccountID)
+	}
+	if f.LabelID != 0 {
+		query += ` AND EXISTS (SELECT 1 FROM message_labels ml
+			WHERE ml.message_id = m.id AND ml.label_id = ?)`
+		args = append(args, f.LabelID)
+	}
+	query += ` ORDER BY m.date DESC`
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // UnreadIDs lists the unread message ids matching the filter (mark-all-read).
 func (s *Store) UnreadIDs(ctx context.Context, f ListFilter) ([]int64, error) {
 	role := f.FolderRole

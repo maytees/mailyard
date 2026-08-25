@@ -97,6 +97,30 @@ func (m *MailService) Archive(ctx context.Context, messageID int64) error {
 	return engine.MoveMessageToRole(ctx, messageID, store.RoleArchive)
 }
 
+// ArchiveAll archives every message matching the filter (the clear-the-
+// inbox sweep for one label view). Returns how many were archived; an
+// individual move failure stops the sweep and reports the partial count.
+func (m *MailService) ArchiveAll(ctx context.Context, filter store.ListFilter) (int, error) {
+	st, err := m.st()
+	if err != nil {
+		return 0, err
+	}
+	engine := m.sync.engineHandle()
+	if engine == nil {
+		return 0, fmt.Errorf("mail engine is not running yet")
+	}
+	ids, err := st.MessageIDs(ctx, filter)
+	if err != nil {
+		return 0, err
+	}
+	for count, id := range ids {
+		if err := engine.MoveMessageToRole(ctx, id, store.RoleArchive); err != nil {
+			return count, fmt.Errorf("archived %d of %d, then: %w", count, len(ids), err)
+		}
+	}
+	return len(ids), nil
+}
+
 // Trash moves a message into the account's trash folder on the server.
 func (m *MailService) Trash(ctx context.Context, messageID int64) error {
 	engine := m.sync.engineHandle()

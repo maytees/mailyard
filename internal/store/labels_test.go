@@ -152,4 +152,14 @@ func TestListMessagesLabelFilter(t *testing.T) {
 	if err != nil || len(all) != 3 {
 		t.Fatalf("unfiltered list broke: got %d err=%v", len(all), err)
 	}
+
+	// The bulk-action id query honors the same label filter (archive-all).
+	promoIDs, err := s.MessageIDs(ctx, ListFilter{LabelID: 3})
+	if err != nil || len(promoIDs) != 2 {
+		t.Fatalf("MessageIDs label filter: got %d err=%v", len(promoIDs), err)
+	}
+	allIDs, err := s.MessageIDs(ctx, ListFilter{})
+	if err != nil || len(allIDs) != 3 {
+		t.Fatalf("MessageIDs unfiltered: got %d err=%v", len(allIDs), err)
+	}
 }

@@ -1,11 +1,15 @@
 import * as React from "react";
 
+import { InboxCheckIcon, InboxIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
 import { LabelBadge } from "@/components/label-pills";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useAccountsStore } from "@/stores/accounts";
 import { useAIStore } from "@/stores/ai";
+import { useLabelsStore } from "@/stores/labels";
 import { loadMoreMessages, useMailStore } from "@/stores/mail";
 import { useSettingsStore } from "@/stores/settings";
 import type { Message } from "~/bindings/mailyard/internal/store/models";
@@ -15,6 +19,57 @@ interface MailListProps {
 	/** Selected message id — the active row gets a persistent highlight. */
 	activeId?: number;
 	onSelect?: (message: Message) => void;
+}
+
+const EMPTY_FOLDER_COPY: Record<string, { title: string; hint: string }> = {
+	inbox: { title: "Inbox zero", hint: "Nothing needs you right now. Enjoy the quiet." },
+	drafts: { title: "No drafts", hint: "Half-written thoughts will wait for you here." },
+	sent: { title: "Nothing sent yet", hint: "Emails you send will show up here." },
+	archive: { title: "Archive is empty", hint: "Archived mail lands here, out of the way." },
+	trash: { title: "Trash is empty", hint: "Deleted mail sits here until it's gone for good." },
+	spam: { title: "No spam", hint: "The junk folder is junk-free." },
+};
+
+/** A real empty state instead of a blank pane: celebratory for a cleared
+ * inbox, matter-of-fact for a filtered label with no mail. */
+function EmptyState() {
+	const folderRole = useMailStore((s) => s.folderRole);
+	const labelFilter = useMailStore((s) => s.labelFilter);
+	const loading = useMailStore((s) => s.loading);
+	const label = useLabelsStore((s) =>
+		s.labels.find((l) => l.id === labelFilter)
+	);
+
+	// Never flash "empty" while the first page is still loading.
+	if (loading) {
+		return <div className="flex-1 min-w-md" />;
+	}
+
+	const cleared = folderRole === "inbox";
+	const copy = label
+		? {
+				title: `No ${label.name} mail`,
+				hint: "Nothing under this label — clear filters to see the rest.",
+			}
+		: (EMPTY_FOLDER_COPY[folderRole] ?? {
+				title: "Nothing here",
+				hint: "This view is empty.",
+			});
+
+	return (
+		<div className="flex flex-1 min-w-md flex-col items-center justify-center gap-3 px-8 text-center">
+			<div className="flex size-14 items-center justify-center rounded-full bg-muted">
+				<HugeiconsIcon
+					icon={cleared ? InboxCheckIcon : InboxIcon}
+					className="size-6 text-muted-foreground"
+				/>
+			</div>
+			<div className="space-y-1">
+				<p className="font-heading text-sm font-semibold">{copy.title}</p>
+				<p className="text-xs text-muted-foreground">{copy.hint}</p>
+			</div>
+		</div>
+	);
 }
 
 export function MailList({ messages, activeId, onSelect }: MailListProps) {
@@ -57,11 +112,7 @@ export function MailList({ messages, activeId, onSelect }: MailListProps) {
 	}, [hasMore, messages.length]);
 
 	if (messages.length === 0) {
-		return (
-			<div className="flex flex-1 min-w-md items-center justify-center text-sm text-muted-foreground">
-				No mail in this view
-			</div>
-		);
+		return <EmptyState />;
 	}
 
 	return (

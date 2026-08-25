@@ -23,6 +23,15 @@ export function Archive(messageID: number): $CancellablePromise<void> {
 }
 
 /**
+ * ArchiveAll archives every message matching the filter (the clear-the-
+ * inbox sweep for one label view). Returns how many were archived; an
+ * individual move failure stops the sweep and reports the partial count.
+ */
+export function ArchiveAll(filter: store$0.ListFilter): $CancellablePromise<number> {
+    return $Call.ByID(133144979, filter);
+}
+
+/**
  * CountByRole counts messages in folders of one role (the Drafts badge).
  */
 export function CountByRole(role: string): $CancellablePromise<number> {
