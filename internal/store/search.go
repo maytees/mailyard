@@ -43,14 +43,16 @@ func (s *Store) Search(ctx context.Context, query, accountID string, limit int) 
 }
 
 // dedupeByMessageID keeps the first copy (callers order by relevance or
-// date) of each RFC Message-ID per account; rows without one never collapse.
+// date) of each RFC Message-ID; rows without one never collapse. The key is
+// deliberately account-blind: an email delivered to two of the user's
+// accounts is still one email in unified search, and threads are
+// account-scoped already.
 func dedupeByMessageID(messages []Message) []Message {
 	seen := map[string]bool{}
 	result := make([]Message, 0, len(messages))
 	for _, message := range messages {
-		key := message.AccountID + "|" + message.MessageID
-		if message.MessageID == "" || !seen[key] {
-			seen[key] = true
+		if message.MessageID == "" || !seen[message.MessageID] {
+			seen[message.MessageID] = true
 			result = append(result, message)
 		}
 	}

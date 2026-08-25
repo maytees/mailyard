@@ -39,6 +39,36 @@ func TestSearchAndThreadDedupeGmailAllMailCopies(t *testing.T) {
 	}
 }
 
+func TestSearchDedupesCrossAccountCopies(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	a := testAccount(t, s, "acc1")
+	b := testAccount(t, s, "acc2")
+
+	// The same newsletter (same RFC Message-ID) lands in both accounts.
+	for _, account := range []Account{a, b} {
+		inbox := testFolder(t, s, account.ID, "INBOX", RoleInbox)
+		if _, _, err := s.UpsertMessage(ctx, Message{
+			AccountID: account.ID, FolderID: inbox, UID: 1,
+			MessageID: "<weekly@list>", Subject: "Weekly roundup",
+			From: Address{Email: "news@x"}, Date: 100,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Unified search shows the email once…
+	hits, err := s.Search(ctx, "roundup", "", 10)
+	if err != nil || len(hits) != 1 {
+		t.Fatalf("cross-account copy doubled search: %d hits err=%v", len(hits), err)
+	}
+	// …while a single-account search still finds that account's copy.
+	scoped, err := s.Search(ctx, "roundup", b.ID, 10)
+	if err != nil || len(scoped) != 1 || scoped[0].AccountID != b.ID {
+		t.Fatalf("scoped search broke: %+v err=%v", scoped, err)
+	}
+}
+
 func TestActionItemsReplaceKeepsDoneHistory(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()

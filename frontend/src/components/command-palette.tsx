@@ -227,7 +227,10 @@ function CommandPalette({
 											key={email.id}
 											// FTS matches on the body too, which cmdk's fuzzy filter
 											// can't see — append the query so hits always survive it.
-											value={`${email.from.name} ${email.subject} ${query}`}
+											// The id keeps values unique: cmdk tracks highlight by
+											// value, so same-sender same-subject rows would
+											// otherwise hover as one.
+											value={`${email.from.name} ${email.subject} ${query} ${email.id}`}
 											onSelect={() => run(() => openMessage(email))}
 										>
 											<MailboxDot
